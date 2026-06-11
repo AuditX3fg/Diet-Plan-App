@@ -412,6 +412,66 @@ footer.foot { text-align: center; color: var(--muted); font-size: 13px; padding:
   .panel, .meal, details.info { box-shadow: none; }
 }
 
+/* ===================== International theme + navigation ===================== */
+/* Light theme overrides (dark is the :root default) */
+[data-theme="light"] {
+  --bg: #eef1f7; --bg-soft: #ffffff; --card: #ffffff; --card-2: #f3f6fb;
+  --line: #e3e8f0; --text: #111a2b; --muted: #5b6678;
+  --shadow: 0 8px 26px rgba(20, 30, 60, .10);
+}
+[data-theme="light"] body {
+  background:
+    radial-gradient(1200px 600px at 100% -10%, rgba(52, 211, 153, .10), transparent 60%),
+    radial-gradient(900px 500px at -10% 10%, rgba(56, 189, 248, .08), transparent 55%),
+    var(--bg);
+}
+[data-theme="light"] .totals { background: rgba(255, 255, 255, .9); }
+[data-theme="light"] #bottom-nav { background: rgba(255, 255, 255, .98); }
+
+/* Bottom navigation */
+#bottom-nav {
+  position: fixed; inset-inline: 0; bottom: 0; z-index: 70;
+  display: flex; background: rgba(22, 26, 34, .96); backdrop-filter: blur(10px);
+  border-top: 1px solid var(--line); padding: 6px 4px;
+  padding-bottom: calc(6px + env(safe-area-inset-bottom));
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: none; border: none; color: var(--muted); font-family: inherit;
+  font-size: 11px; font-weight: 700; cursor: pointer; padding: 5px 2px;
+  transition: color .15s;
+}
+.nav-item svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.nav-item.active { color: var(--accent); }
+.nav-item:active { transform: scale(.94); }
+
+/* keep the totals bar above the nav */
+.totals { bottom: 58px; }
+.wrap { padding-bottom: 160px; }
+
+/* Generic sheet + utilities (used across modals) */
+.sheet { width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto; background: var(--bg-soft); border: 1px solid var(--line); border-radius: 22px 22px 0 0; padding: 14px 16px 26px; }
+@media (min-width: 600px) { .sheet { border-radius: 22px; } }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.sheet-head strong { font-size: 18px; }
+.icon-btn { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font-size: 16px; cursor: pointer; }
+.btn.block { width: 100%; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-top: 10px; }
+.grow { flex: 1; }
+.center { text-align: center; }
+.mt4 { margin-top: 4px; } .mt8 { margin-top: 8px; } .mt10 { margin-top: 10px; }
+.form-err { color: #fca5a5; text-align: center; font-size: 14px; margin: 8px 0; }
+
+/* Settings */
+#settings-modal { position: fixed; inset: 0; z-index: 100; background: rgba(5, 7, 10, .6); backdrop-filter: blur(6px); display: flex; align-items: flex-end; justify-content: center; }
+#settings-modal[hidden] { display: none; }
+@media (min-width: 600px) { #settings-modal { align-items: center; } }
+.set-group { margin: 16px 0; }
+.set-label { font-size: 13px; color: var(--muted); font-weight: 800; margin-bottom: 8px; }
+.seg { display: flex; gap: 8px; }
+.seg-btn { flex: 1; padding: 11px 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--text); font-family: inherit; font-weight: 700; font-size: 14px; cursor: pointer; }
+.seg-btn.on { border-color: var(--accent); color: var(--accent); background: rgba(52, 211, 153, .12); }
+
 </style>
 </head>
 <body>
@@ -597,28 +657,28 @@ footer.foot { text-align: center; color: var(--muted); font-size: 13px; padding:
         <span class="macros"><span class="macro c">٥٠٠ سعرة</span><span class="macro p">٥٦غ بروتين</span><span class="macro n">٤٠غ نشويات</span></span></span></div>
       <div class="option static"><span class="optnum">١٠</span>
         <span class="body"><span class="name">سلطة مع علبة تونا بدون زيت + ١٠٠غ معكرونة + ملعقة مايونيز لايت</span>
-        <span class="macros"><span class="macro muted">حسب المكونات</span></span></span></div>
+        <span class="macros"><span class="macro c">٣٥٠ سعرة</span><span class="macro p">٣٢غ بروتين</span><span class="macro n">٣٣غ نشويات</span></span></span></div>
       <div class="option static"><span class="optnum">١١</span>
         <span class="body"><span class="name">أسماك مشوية + ٢٠٠غ رز</span>
-        <span class="macros"><span class="macro muted">حسب المكونات</span></span></span></div>
+        <span class="macros"><span class="macro c">٤٨٠ سعرة</span><span class="macro p">٣٨غ بروتين</span><span class="macro n">٤٨غ نشويات</span></span></span></div>
       <div class="option static"><span class="optnum">١٢</span>
         <span class="body"><span class="name">٢٠٠غ قريدس + ١٠٠غ رز</span>
-        <span class="macros"><span class="macro muted">حسب المكونات</span></span></span></div>
+        <span class="macros"><span class="macro c">٣٣٠ سعرة</span><span class="macro p">٤٨غ بروتين</span><span class="macro n">٣٠غ نشويات</span></span></span></div>
       <div class="option static"><span class="optnum">١٣</span>
         <span class="body"><span class="name">فاصوليا/بازيلاء/لوبيا/بامية ٣٥٠غ (لحمة رأس عصفور) + ١٠٠غ رز</span>
-        <span class="macros"><span class="macro muted">حسب المكونات</span></span></span></div>
+        <span class="macros"><span class="macro c">٤٣٠ سعرة</span><span class="macro p">٢٢غ بروتين</span><span class="macro n">٤٥غ نشويات</span></span></span></div>
       <div class="option static"><span class="optnum">١٤</span>
         <span class="body"><span class="name">مجدرة على أنواعها ٣٥٠غ + ١٠٠غ لين</span>
-        <span class="macros"><span class="macro muted">حسب المكونات</span></span></span></div>
+        <span class="macros"><span class="macro c">٥٠٠ سعرة</span><span class="macro p">١٨غ بروتين</span><span class="macro n">٧٢غ نشويات</span></span></span></div>
       <div class="option static"><span class="optnum">١٥</span>
         <span class="body"><span class="name">ملوخية ٢٠٠غ + ١٠٠غ رز + ٢٠٠غ دجاج</span>
-        <span class="macros"><span class="macro muted">حسب المكونات</span></span></span></div>
+        <span class="macros"><span class="macro c">٥٦٠ سعرة</span><span class="macro p">٦٠غ بروتين</span><span class="macro n">٣٨غ نشويات</span></span></span></div>
       <div class="option static"><span class="optnum">١٦</span>
         <span class="body"><span class="name">١٠ حبات سوشي</span>
-        <span class="macros"><span class="macro muted">حسب المكونات</span></span></span></div>
+        <span class="macros"><span class="macro c">٣٨٠ سعرة</span><span class="macro p">١٢غ بروتين</span><span class="macro n">٦٠غ نشويات</span></span></span></div>
       <div class="option static"><span class="optnum">١٧</span>
         <span class="body"><span class="name">٤ حبات من كريات الدجاج<a class="recipe" href="https://www.instagram.com/reel/CrjApv7sIhN/?igsh=MTFuemI4cmZ0cHlwMA==" target="_blank" rel="noopener">▶ وصفة</a></span>
-        <span class="macros"><span class="macro muted">حسب المكونات</span></span></span></div></div>
+        <span class="macros"><span class="macro c">٢٨٠ سعرة</span><span class="macro p">١٨غ بروتين</span><span class="macro n">٢٢غ نشويات</span></span></span></div></div>
   </div></section>
   <section class="section"><div class="panel">
   <div class="meal-head"><div class="meal-icon">🍎</div><div><p class="meal-title">الفواكه</p><p class="meal-hint">اختر نوعين يومياً</p></div></div>
@@ -639,6 +699,274 @@ footer.foot { text-align: center; color: var(--muted); font-size: 13px; padding:
     <button class="btn primary" id="btn-reset" type="button">إعادة تعيين</button>
   </div>
 </div></div>
+<script>
+/*
+ * التعدّد اللغوي (عربي / English / Français) + المحتوى المترجم
+ * اللغة محفوظة في localStorage. الواجهات تقرأ من t() و C().
+ */
+(function () {
+  "use strict";
+  const LS = "lang";
+  const LANGS = ["ar", "en", "fr"];
+  let lang = (() => { try { const l = localStorage.getItem(LS); return LANGS.includes(l) ? l : "ar"; } catch (_) { return "ar"; } })();
+
+  const getLang = () => lang;
+  const dirOf = (l) => (l === "ar" ? "rtl" : "ltr");
+  function setLang(l) {
+    if (!LANGS.includes(l)) return;
+    try { localStorage.setItem(LS, l); } catch (_) {}
+    location.reload();
+  }
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = dirOf(lang);
+  }
+
+  /* واجهة المستخدم */
+  const UI = {
+    appTitle: { ar: "الخطة الغذائية", en: "Diet Plan", fr: "Plan Diététique" },
+    subtitle: { ar: "خطة الوجبات اليومية — اختر خياراً واحداً من كل وجبة", en: "Daily meal plan — pick one option per meal", fr: "Plan de repas quotidien — une option par repas" },
+    rulesTitle: { ar: "قواعد إرشادية", en: "Guidelines", fr: "Conseils" },
+    notesTitle: { ar: "ملاحظات هامة", en: "Important notes", fr: "Notes importantes" },
+    options: { ar: "خيارات", en: "options", fr: "options" },
+    recipe: { ar: "وصفة", en: "recipe", fr: "recette" },
+    chocoRecipe: { ar: "وصفة الشوكولا", en: "chocolate recipe", fr: "recette chocolat" },
+    byIngredients: { ar: "حسب المكونات", en: "by ingredients", fr: "selon ingrédients" },
+    cal: { ar: "سعرة", en: "kcal", fr: "kcal" },
+    protein: { ar: "بروتين", en: "protein", fr: "protéines" },
+    carbs: { ar: "نشويات", en: "carbs", fr: "glucides" },
+    gProtein: { ar: "غ بروتين", en: "g protein", fr: "g protéines" },
+    gCarbs: { ar: "غ نشويات", en: "g carbs", fr: "g glucides" },
+    g: { ar: "غ", en: "g", fr: "g" },
+    dayTotal: { ar: "مجموع اليوم", en: "Daily total", fr: "Total du jour" },
+    goal: { ar: "الهدف", en: "Goal", fr: "Objectif" },
+    remaining: { ar: "متبقّي", en: "left", fr: "restant" },
+    exceeded: { ar: "تجاوزت", en: "over by", fr: "dépassé de" },
+    selected: { ar: "✓ تم الاختيار", en: "✓ selected", fr: "✓ choisi" },
+    print: { ar: "طباعة", en: "Print", fr: "Imprimer" },
+    reset: { ar: "إعادة تعيين", en: "Reset", fr: "Réinitialiser" },
+    footer: { ar: "الخطة من إعداد", en: "Plan by", fr: "Plan par" },
+    footerTail: { ar: "— القيم الغذائية تقريبية ومستخرجة من الملف.", en: "— nutrition values are approximate.", fr: "— valeurs nutritionnelles approximatives." },
+    chooseTwoFruits: { ar: "اختر نوعين يومياً", en: "Pick two per day", fr: "Choisissez deux par jour" },
+    fruits: { ar: "الفواكه", en: "Fruits", fr: "Fruits" },
+
+    // التنقّل
+    navPlan: { ar: "الخطة", en: "Plan", fr: "Plan" },
+    navCalendar: { ar: "الأسبوع", en: "Week", fr: "Semaine" },
+    navScan: { ar: "مسح", en: "Scan", fr: "Scan" },
+    navBmi: { ar: "الكتلة", en: "BMI", fr: "IMC" },
+    navSettings: { ar: "الإعدادات", en: "Settings", fr: "Réglages" },
+
+    // الإعدادات
+    settings: { ar: "الإعدادات", en: "Settings", fr: "Réglages" },
+    language: { ar: "اللغة", en: "Language", fr: "Langue" },
+    theme: { ar: "المظهر", en: "Theme", fr: "Thème" },
+    dark: { ar: "داكن", en: "Dark", fr: "Sombre" },
+    light: { ar: "فاتح", en: "Light", fr: "Clair" },
+    system: { ar: "تلقائي", en: "System", fr: "Système" },
+
+    // التقويم
+    weekProgram: { ar: "برنامج الأسبوع", en: "Weekly program", fr: "Programme hebdo" },
+    newPlan: { ar: "🎲 خطة جديدة", en: "🎲 New plan", fr: "🎲 Nouveau plan" },
+    weekNote: { ar: "توصيات يومية — خيار لكل وجبة بدون تكرار خلال الأسبوع.", en: "Daily picks — one option per meal, no repeats in the week.", fr: "Choix quotidiens — une option par repas, sans répétition." },
+    today: { ar: "اليوم", en: "Today", fr: "Aujourd'hui" },
+    onTarget: { ar: "✓ ضمن هدفك", en: "✓ on target", fr: "✓ dans l'objectif" },
+
+    // الماسح
+    scanFood: { ar: "مسح طعام", en: "Scan food", fr: "Scanner aliment" },
+    myList: { ar: "قائمتي", en: "My list", fr: "Ma liste" },
+    aimCamera: { ar: "وجّه الكاميرا نحو الباركود…", en: "Point the camera at the barcode…", fr: "Visez le code-barres…" },
+    scanGallery: { ar: "🖼️ مسح من الصور (المعرض)", en: "🖼️ Scan from gallery", fr: "🖼️ Scanner depuis la galerie" },
+    manualBarcode: { ar: "أو أدخل رقم الباركود يدوياً", en: "or enter the barcode manually", fr: "ou saisissez le code-barres" },
+    search: { ar: "بحث", en: "Search", fr: "Rechercher" },
+    searchByName: { ar: "أو ابحث باسم المنتج (مثال: عنب، دجاج)", en: "or search by name (e.g. grapes, chicken)", fr: "ou par nom (ex : raisin, poulet)" },
+    openingCamera: { ar: "جارٍ فتح الكاميرا…", en: "Opening camera…", fr: "Ouverture de la caméra…" },
+    searching: { ar: "جارٍ البحث…", en: "Searching…", fr: "Recherche…" },
+    readingImage: { ar: "جارٍ قراءة الباركود من الصورة…", en: "Reading barcode from image…", fr: "Lecture du code-barres…" },
+    camNeedsHttps: { ar: "الكاميرا تحتاج موقعاً آمناً (https). استخدم الإدخال اليدوي بالأسفل.", en: "Camera needs a secure (https) site. Use manual entry below.", fr: "La caméra requiert un site sécurisé (https). Utilisez la saisie manuelle." },
+    camDenied: { ar: "تم رفض إذن الكاميرا. فعّله من إعدادات المتصفح، أو استخدم الإدخال اليدوي.", en: "Camera permission denied. Enable it in browser settings, or use manual entry.", fr: "Permission caméra refusée. Activez-la ou utilisez la saisie manuelle." },
+    camFail: { ar: "تعذّر فتح الكاميرا. استخدم الإدخال اليدوي بالأسفل.", en: "Could not open the camera. Use manual entry below.", fr: "Impossible d'ouvrir la caméra. Utilisez la saisie manuelle." },
+    loaderFail: { ar: "تعذّر تحميل الماسح. استخدم الإدخال اليدوي بالأسفل.", en: "Scanner failed to load. Use manual entry below.", fr: "Échec du scanner. Utilisez la saisie manuelle." },
+    imgReadFail: { ar: "لم أتمكّن من قراءة الباركود من هذه الصورة. جرّب صورة أوضح أو أدخل الرقم يدوياً.", en: "Couldn't read a barcode from this image. Try a clearer one or enter manually.", fr: "Code-barres illisible sur cette image. Essayez une image plus nette." },
+    notFoundTitle: { ar: "لم يُعثر على المنتج في قواعد البيانات", en: "Product not found in the databases", fr: "Produit introuvable dans les bases" },
+    notFoundMsg: { ar: "غير متوفّر في قواعد البيانات. تعرّف على المنتج عبر بحث الويب، ثم أدخل قيمه يدوياً (من الملصق) لتقييمه وحفظه:", en: "Not in the databases. Identify it via web search, then enter its values manually (from the label) to assess and save it:", fr: "Absent des bases. Identifiez-le via une recherche web, puis saisissez ses valeurs (étiquette) pour l'évaluer :" },
+    googleSearch: { ar: "🔎 ابحث عنه في Google", en: "🔎 Search on Google", fr: "🔎 Rechercher sur Google" },
+    per100: { ar: "القيمة لكل ١٠٠ غرام", en: "Per 100 g", fr: "Pour 100 g" },
+    fats: { ar: "دهون", en: "Fat", fr: "Lipides" },
+    satFat: { ar: "دهون مشبعة", en: "Saturated fat", fr: "Graisses saturées" },
+    sugars: { ar: "سكريات", en: "Sugars", fr: "Sucres" },
+    salt: { ar: "ملح", en: "Salt", fr: "Sel" },
+    ingredients: { ar: "المكونات", en: "Ingredients", fr: "Ingrédients" },
+    benefitsTitle: { ar: "الفوائد الغذائية", en: "Nutritional benefits", fr: "Bienfaits nutritionnels" },
+    ratingReasons: { ar: "أسباب التقييم مقارنةً بالدايت", en: "Why this rating (vs. the diet)", fr: "Pourquoi cette note (vs régime)" },
+    advice: { ar: "نصيحة", en: "Advice", fr: "Conseil" },
+    addToList: { ar: "➕ أضف إلى قائمتي", en: "➕ Add to my list", fr: "➕ Ajouter à ma liste" },
+    inList: { ar: "✓ موجود في قائمتي", en: "✓ In my list", fr: "✓ Dans ma liste" },
+    added: { ar: "✓ أُضيفت إلى قائمتي", en: "✓ Added to my list", fr: "✓ Ajouté à ma liste" },
+    listEmpty: { ar: "قائمتك فارغة. عند عرض أي منتج اضغط «➕ أضف إلى قائمتي».", en: "Your list is empty. On any product tap “➕ Add to my list”.", fr: "Liste vide. Sur un produit, appuyez sur « ➕ Ajouter »." },
+    recent: { ar: "آخر العمليات", en: "Recent", fr: "Récents" },
+    clearHistory: { ar: "مسح السجل", en: "Clear", fr: "Effacer" },
+    enterOneValue: { ar: "أدخل قيمة واحدة على الأقل (مثلاً السعرات).", en: "Enter at least one value (e.g. calories).", fr: "Saisissez au moins une valeur (ex : calories)." },
+    manualTitle: { ar: "القيم لكل ١٠٠ غرام (من الملصق):", en: "Values per 100 g (from the label):", fr: "Valeurs pour 100 g (étiquette) :" },
+    calcFit: { ar: "احسب الملاءمة", en: "Assess", fr: "Évaluer" },
+    noNutrition: { ar: "لا تتوفّر قيم غذائية لهذا المنتج. أدخلها يدوياً من الملصق لتقييمه:", en: "No nutrition data for this product. Enter it from the label to assess:", fr: "Aucune donnée nutritionnelle. Saisissez-les depuis l'étiquette :" },
+    src: { ar: "المصدر", en: "Source", fr: "Source" },
+    srcBuiltin: { ar: "جدول الأغذية", en: "food table", fr: "table d'aliments" },
+    barcode: { ar: "باركود", en: "barcode", fr: "code-barres" },
+    couldntConnect: { ar: "تعذّر الاتصال", en: "Connection failed", fr: "Échec de connexion" },
+    checkNet: { ar: "تأكد من اتصالك بالإنترنت ثم حاول مجدداً.", en: "Check your internet and try again.", fr: "Vérifiez votre connexion et réessayez." },
+
+    // verdicts / decisions
+    vOk: { ar: "مناسب للدايت ✅", en: "Diet-friendly ✅", fr: "Adapté au régime ✅" },
+    vWarn: { ar: "تناوله بحذر ⚠️", en: "Eat with caution ⚠️", fr: "À consommer avec modération ⚠️" },
+    vBad: { ar: "غير مناسب للدايت ❌", en: "Not diet-friendly ❌", fr: "Non adapté ❌" },
+    dOk: { ar: "القرار: تناوله ضمن دايتك ✅", en: "Decision: eat it within your diet ✅", fr: "Décision : à consommer ✅" },
+    dWarn: { ar: "القرار: تناوله باعتدال ⚖️", en: "Decision: eat in moderation ⚖️", fr: "Décision : avec modération ⚖️" },
+    dBad: { ar: "القرار: يُفضّل تجنّبه 🚫", en: "Decision: better avoid it 🚫", fr: "Décision : à éviter 🚫" },
+
+    // health
+    healthTitle: { ar: "الكتلة والسعرات (BMI / BMR)", en: "Body & calories (BMI / BMR)", fr: "Corps & calories (IMC / MB)" },
+    sex: { ar: "الجنس", en: "Sex", fr: "Sexe" },
+    male: { ar: "ذكر", en: "Male", fr: "Homme" },
+    female: { ar: "أنثى", en: "Female", fr: "Femme" },
+    age: { ar: "العمر (سنة)", en: "Age (years)", fr: "Âge (ans)" },
+    height: { ar: "الطول (سم)", en: "Height (cm)", fr: "Taille (cm)" },
+    weight: { ar: "الوزن (كغ)", en: "Weight (kg)", fr: "Poids (kg)" },
+    goalWeight: { ar: "الوزن الهدف (كغ) — اختياري", en: "Goal weight (kg) — optional", fr: "Poids cible (kg) — optionnel" },
+    activity: { ar: "مستوى النشاط", en: "Activity level", fr: "Niveau d'activité" },
+    actSed: { ar: "خامل (بلا تمرين)", en: "Sedentary (no exercise)", fr: "Sédentaire (aucun sport)" },
+    actLight: { ar: "خفيف (١-٣ أيام)", en: "Light (1–3 days)", fr: "Léger (1–3 jours)" },
+    actMod: { ar: "متوسط (٣-٥ أيام)", en: "Moderate (3–5 days)", fr: "Modéré (3–5 jours)" },
+    actActive: { ar: "نشيط (٦-٧ أيام)", en: "Active (6–7 days)", fr: "Actif (6–7 jours)" },
+    actVactive: { ar: "نشيط جداً", en: "Very active", fr: "Très actif" },
+    goalLabel: { ar: "الهدف", en: "Goal", fr: "Objectif" },
+    goalLose: { ar: "إنقاص الوزن", en: "Lose weight", fr: "Perdre du poids" },
+    goalMaintain: { ar: "المحافظة", en: "Maintain", fr: "Maintenir" },
+    goalGain: { ar: "زيادة الوزن", en: "Gain weight", fr: "Prendre du poids" },
+    calculate: { ar: "احسب", en: "Calculate", fr: "Calculer" },
+    needInputs: { ar: "يرجى إدخال العمر والطول والوزن.", en: "Please enter age, height and weight.", fr: "Saisissez âge, taille et poids." },
+    bmiLabel: { ar: "مؤشر الكتلة BMI", en: "BMI", fr: "IMC" },
+    healthyRange: { ar: "الوزن الصحي لطولك", en: "Healthy weight for your height", fr: "Poids santé pour votre taille" },
+    bmrLabel: { ar: "معدل الأيض BMR", en: "BMR (resting)", fr: "MB (repos)" },
+    maintainNeed: { ar: "احتياجك للمحافظة", en: "Maintenance need", fr: "Besoin d'entretien" },
+    proteinSuggest: { ar: "بروتين مقترح", en: "Suggested protein", fr: "Protéines conseillées" },
+    reachGoal: { ar: "الوصول للهدف", en: "Reach goal", fr: "Atteindre l'objectif" },
+    perDay: { ar: "غ/يوم", en: "g/day", fr: "g/jour" },
+    weeksApprox: { ar: "أسبوع تقريباً", en: "weeks (approx.)", fr: "semaines (env.)" },
+    dailyGoal: { ar: "هدفك اليومي", en: "Your daily goal", fr: "Objectif quotidien" },
+    applyGoal: { ar: "✓ اعتمد هذا الهدف للخطة", en: "✓ Apply this goal to the plan", fr: "✓ Appliquer cet objectif" },
+    goalApplied: { ar: "تم اعتماد الهدف — انعكس على الخطة وبرنامج الأسبوع.", en: "Goal applied — reflected in the plan and weekly program.", fr: "Objectif appliqué — répercuté sur le plan." },
+    catUnder: { ar: "نقص وزن", en: "Underweight", fr: "Insuffisance pondérale" },
+    catNormal: { ar: "وزن طبيعي", en: "Normal weight", fr: "Poids normal" },
+    catOver: { ar: "زيادة وزن", en: "Overweight", fr: "Surpoids" },
+    catObese: { ar: "سمنة", en: "Obese", fr: "Obésité" },
+    weeksField: { ar: "المدة للوصول (أسابيع) — اختياري", en: "Timeframe (weeks) — optional", fr: "Délai (semaines) — optionnel" },
+    rateLabel: { ar: "المعدل", en: "Rate", fr: "Rythme" },
+    kgPerWeek: { ar: "كغ/أسبوع", en: "kg/week", fr: "kg/semaine" },
+    rateFast: { ar: "⚠️ هذا المعدل سريع؛ يُنصح بما لا يتجاوز ١ كغ أسبوعياً.", en: "⚠️ This pace is fast; ≤ 1 kg/week is recommended.", fr: "⚠️ Rythme rapide ; ≤ 1 kg/semaine recommandé." },
+    hAdviceLose: { ar: "هدفك إنقاص الوزن. التزم بحوالي {t} سعرة يومياً مع التركيز على البروتين (≈{p}غ) والحركة (٦٠٠٠+ خطوة).", en: "Goal: lose weight. Aim for about {t} kcal/day with high protein (≈{p} g) and more movement (6,000+ steps).", fr: "Objectif : perdre du poids. Visez ~{t} kcal/jour, riche en protéines (≈{p} g) et bougez (6 000+ pas)." },
+    hAdviceGain: { ar: "هدفك زيادة الوزن. استهدف حوالي {t} سعرة يومياً مع بروتين كافٍ (≈{p}غ) وتمارين مقاومة.", en: "Goal: gain weight. Target about {t} kcal/day with enough protein (≈{p} g) and resistance training.", fr: "Objectif : prendre du poids. Visez ~{t} kcal/jour, protéines suffisantes (≈{p} g) et musculation." },
+    hAdviceMaintain: { ar: "هدفك المحافظة على وزنك. استهلك حوالي {t} سعرة يومياً مع بروتين ≈{p}غ ونشاط منتظم.", en: "Goal: maintain. Consume about {t} kcal/day with ≈{p} g protein and regular activity.", fr: "Objectif : maintenir. Consommez ~{t} kcal/jour, ≈{p} g de protéines et activité régulière." },
+  };
+
+  function t(key, params) {
+    const e = UI[key];
+    let s = (e && (e[lang] || e.ar)) || key;
+    if (params) for (const k in params) s = s.replace(new RegExp("\\{" + k + "\\}", "g"), params[k]);
+    return s;
+  }
+
+  /* محتوى الخطة المترجم (يقابل الترتيب في data.js) */
+  const C = {
+    meals: {
+      m1: { name: { en: "Meal 1", fr: "Repas 1" }, hint: { en: "Breakfast — the most important meal", fr: "Petit-déjeuner — le plus important" } },
+      m2: { name: { en: "Meal 2", fr: "Repas 2" }, hint: { en: "Light meal / snack", fr: "Collation" } },
+      m3: { name: { en: "Meal 3", fr: "Repas 3" }, hint: { en: "Main meal (lunch)", fr: "Repas principal (déjeuner)" } },
+      m4: { name: { en: "Meal 4", fr: "Repas 4" }, hint: { en: "Dinner", fr: "Dîner" } },
+    },
+    rules: {
+      en: [
+        "Your family should help — keep snacks away: “out of sight, out of mind”, especially sweets.",
+        "The diet is between you and yourself, so be honest about what you eat.",
+        "If hungry at night: food boiled or cooked, all spices allowed.",
+        "First meal two hours after waking.",
+        "Last meal two hours before training; eat three hours before sleep.",
+        "Breakfast is the most important meal.",
+        "If you commit, results are guaranteed.",
+        "Tip: drink a cup of warm water with a squeeze of lemon on waking.",
+        "Raw nuts allowed: 30 g max.",
+      ],
+      fr: [
+        "Votre famille doit aider — éloignez les grignotages : « loin des yeux, loin du cœur », surtout les sucreries.",
+        "Le régime est une affaire personnelle, soyez honnête sur ce que vous mangez.",
+        "Faim la nuit : aliments bouillis ou cuits, toutes les épices permises.",
+        "Premier repas deux heures après le réveil.",
+        "Dernier repas deux heures avant l'entraînement ; manger trois heures avant le coucher.",
+        "Le petit-déjeuner est le repas le plus important.",
+        "Si vous tenez bon, les résultats sont garantis.",
+        "Astuce : un verre d'eau tiède avec du citron au réveil.",
+        "Noix crues autorisées : 30 g max.",
+      ],
+    },
+    notes: {
+      en: [
+        "Move more — aim for 6,000 steps daily.",
+        "Add up the four meals plus fruit for your daily total.",
+        "Drink plenty of water — around 3 L daily.",
+        "All diet drinks are allowed.",
+        "Drink ginger / green tea / mint / coffee.",
+        "3 to 4 hours between meals.",
+        "Meals may be reordered.",
+        "All weights are after cooking.",
+        "All weights are in grams.",
+        "Any Meal 1 option can be used for Meal 2.",
+        "For meals 3 & 4 you may add: a salad plate (max two spoons olive oil + yogurt/vinegar/mustard/sumac/lemon), or grilled veg (pepper/onion/carrot/zucchini/broccoli with spices).",
+        "Best of luck 💪",
+      ],
+      fr: [
+        "Bougez plus — visez 6 000 pas par jour.",
+        "Additionnez les quatre repas et les fruits pour le total du jour.",
+        "Buvez beaucoup d'eau — environ 3 L par jour.",
+        "Toutes les boissons « light » sont permises.",
+        "Buvez gingembre / thé vert / menthe / café.",
+        "3 à 4 heures entre les repas.",
+        "Les repas peuvent être réorganisés.",
+        "Tous les poids sont après cuisson.",
+        "Tous les poids sont en grammes.",
+        "Toute option du Repas 1 peut servir au Repas 2.",
+        "Pour les repas 3 & 4 : une salade (max deux c. d'huile d'olive + yaourt/vinaigre/moutarde/sumac/citron), ou des légumes grillés (poivron/oignon/carotte/courgette/brocoli).",
+        "Bonne chance 💪",
+      ],
+    },
+    fruitNote: { en: "Pick two fruits daily by the listed weight (each serving ≈ 75 kcal).", fr: "Deux fruits par jour selon le poids indiqué (≈ 75 kcal la portion)." },
+    fruitSub: { en: "Fruit may be swapped for: 40 g dark chocolate 70%, or 50 g popcorn (same total calories).", fr: "Remplacement possible : 40 g chocolat noir 70 %, ou 50 g pop-corn (mêmes calories)." },
+    fruits: {
+      en: ["Cherry plum", "Banana", "Mango", "Apple", "Papaya", "Pineapple", "Loquat", "Peach", "Plum", "Avocado", "Watermelon", "Lemon", "Persimmon", "Pear", "Grapes", "Strawberry", "Custard apple (medium)", "Pomegranate (medium)"],
+      fr: ["Prune cerise", "Banane", "Mangue", "Pomme", "Papaye", "Ananas", "Nèfle", "Pêche", "Prune", "Avocat", "Pastèque", "Citron", "Kaki", "Poire", "Raisin", "Fraise", "Pomme cannelle (moyenne)", "Grenade (moyenne)"],
+    },
+    options: {
+      m1: { en: ["Cottage-cheese pancake", "2 toasts or bread (whole wheat) + 150 g labneh", "Minced-meat bowl (taqwira)", "Boiled/fried eggs with olive oil + brown/oat bread (or 2 toasts) + tomato", "Foul medames 400 g + flatbread with veg", "100 g smoked turkey + 2 toasts + 2 kashkaval slices", "250 g cottage cheese + 1 tbsp honey & strawberry", "TikTok pancake", "TikTok omelette"], fr: ["Pancake au fromage blanc", "2 toasts ou pain (blé complet) + 150 g labneh", "Bol de viande hachée (taqwira)", "Œufs (huile d'olive) + pain complet/avoine (ou 2 toasts) + tomate", "Foul medames 400 g + galette + légumes", "100 g dinde fumée + 2 toasts + 2 tr. kashkaval", "250 g fromage blanc + 1 c. miel & fraise", "Pancake TikTok", "Omelette TikTok"] },
+      m2: { en: ["Diet qatayef", "Mafrouké", "Diet soup", "Rice halva", "Diet dessert", "Pistachio TikTok cake", "Minten protein bar", "250 g lupini beans", "French toast", "Baked potato", "100 g white cheese + 2 toasts", "Healthy falafel", "40 g skim milk powder + 250 g skim oats", "400 g boiled edamame / local labneh", "400 g Greek yogurt + berries"], fr: ["Qatayef diète", "Mafrouké", "Soupe diète", "Halva de riz", "Dessert diète", "Gâteau pistache TikTok", "Barre protéinée Minten", "250 g lupins", "Pain perdu", "Pomme de terre au four", "100 g fromage blanc + 2 toasts", "Falafel santé", "40 g lait écrémé en poudre + 250 g avoine", "400 g édamame / labneh local", "400 g yaourt grec + baies"] },
+      m3: { en: ["Healthy burger", "200 g meat + 100 g rice", "Oven meat 200 g + flatbread", "Pasta in red sauce 100 g + 200 g meat", "Tray chicken", "Healthy crisp", "Healthy pasta", "Chicken sandwich", "Meat 200 g (kofta/steak) + grilled potato 125 g", "Chicken fajita 200 g + 30 g mozzarella + flatbread", "Flatbread + 100 g bulgur + 100 g labneh + 200 g chicken", "200 g chicken + grilled/boiled potato 125 g (spiced)", "200 g chicken + 100 g rice", "Chicken-breast sandwich + bread + mustard/light mayo + veg", "Healthy cheesecake", "Salad with tuna (no oil) + 170 g sweet corn", "Two pieces healthy lasagna"], fr: ["Burger santé", "200 g viande + 100 g riz", "Viande au four 200 g + galette", "Pâtes sauce rouge 100 g + 200 g viande", "Poulet au plat", "Crisp santé", "Pâtes santé", "Sandwich poulet", "Viande 200 g (kofta/steak) + pomme de terre grillée 125 g", "Fajita poulet 200 g + 30 g mozzarella + galette", "Galette + 100 g boulgour + 100 g labneh + 200 g poulet", "200 g poulet + pomme de terre 125 g (épicée)", "200 g poulet + 100 g riz", "Sandwich blanc de poulet + pain + moutarde/mayo légère + légumes", "Cheesecake santé", "Salade thon (sans huile) + 170 g maïs doux", "Deux parts lasagne santé"] },
+      m4: { en: ["Escalope", "6 sausage pizza slices", "Rice & chicken", "Diet crepe", "10 healthy nuggets", "Half-box TikTok nuggets", "400 g stuffed vine leaves", "350 g tray kibbeh + 100 g labneh", "400 g stuffed zucchini", "Salad with tuna (no oil) + 100 g pasta + light mayo", "Grilled fish + 200 g rice", "200 g shrimp + 100 g rice", "Beans/peas/cowpea/okra 350 g (small meatballs) + 100 g rice", "Mujaddara 350 g + 100 g labneh", "Molokhia 200 g + 100 g rice + 200 g chicken", "10 pieces sushi", "4 chicken balls"], fr: ["Escalope", "6 parts pizza saucisse", "Riz & poulet", "Crêpe diète", "10 nuggets santé", "Demi-boîte nuggets TikTok", "400 g feuilles de vigne farcies", "350 g kibbeh au plat + 100 g labneh", "400 g courgettes farcies", "Salade thon (sans huile) + 100 g pâtes + mayo légère", "Poisson grillé + 200 g riz", "200 g crevettes + 100 g riz", "Haricots/pois/niébé/gombo 350 g (boulettes) + 100 g riz", "Moujaddara 350 g + 100 g labneh", "Molokhia 200 g + 100 g riz + 200 g poulet", "10 pièces sushi", "4 boulettes de poulet"] },
+    },
+  };
+
+  // مساعدات المحتوى — ترجع العربية الأصلية إن لم تتوفّر ترجمة
+  function mealName(id, ar) { return lang === "ar" ? ar : (C.meals[id] && C.meals[id].name[lang]) || ar; }
+  function mealHint(id, ar) { return lang === "ar" ? ar : (C.meals[id] && C.meals[id].hint[lang]) || ar; }
+  function optName(id, idx, ar) { return lang === "ar" ? ar : (C.options[id] && C.options[id][lang] && C.options[id][lang][idx]) || ar; }
+  function fruitName(idx, ar) { return lang === "ar" ? ar : (C.fruits[lang] && C.fruits[lang][idx]) || ar; }
+  function rule(idx, ar) { return lang === "ar" ? ar : (C.rules[lang] && C.rules[lang][idx]) || ar; }
+  function note(idx, ar) { return lang === "ar" ? ar : (C.notes[lang] && C.notes[lang][idx]) || ar; }
+  function fruitNote(ar) { return lang === "ar" ? ar : C.fruitNote[lang] || ar; }
+  function fruitSub(ar) { return lang === "ar" ? ar : C.fruitSub[lang] || ar; }
+
+  window.I18N = { getLang, setLang, applyLang, dirOf, t, mealName, mealHint, optName, fruitName, rule, note, fruitNote, fruitSub };
+  applyLang();
+})();
+
+</script>
 <script>
 /*
  * بيانات الخطة الغذائية — مستخرجة من ملف الكوتش علي مراد (Coach Ali Murad)
@@ -762,14 +1090,14 @@ const PLAN = {
         { name: "٤٠٠غ ورق عنب", c: 450, p: 54, n: 35 },
         { name: "٣٥٠غ كبة بالصينية + ١٠٠غ لين", c: 590, p: 36, n: 55 },
         { name: "٤٠٠غ كوسا محشي", c: 500, p: 56, n: 40 },
-        { name: "سلطة مع علبة تونا بدون زيت + ١٠٠غ معكرونة + ملعقة مايونيز لايت", c: null, p: null, n: null },
-        { name: "أسماك مشوية + ٢٠٠غ رز", c: null, p: null, n: null },
-        { name: "٢٠٠غ قريدس + ١٠٠غ رز", c: null, p: null, n: null },
-        { name: "فاصوليا/بازيلاء/لوبيا/بامية ٣٥٠غ (لحمة رأس عصفور) + ١٠٠غ رز", c: null, p: null, n: null },
-        { name: "مجدرة على أنواعها ٣٥٠غ + ١٠٠غ لين", c: null, p: null, n: null },
-        { name: "ملوخية ٢٠٠غ + ١٠٠غ رز + ٢٠٠غ دجاج", c: null, p: null, n: null },
-        { name: "١٠ حبات سوشي", c: null, p: null, n: null },
-        { name: "٤ حبات من كريات الدجاج", recipe: true, c: null, p: null, n: null },
+        { name: "سلطة مع علبة تونا بدون زيت + ١٠٠غ معكرونة + ملعقة مايونيز لايت", c: 350, p: 32, n: 33 },
+        { name: "أسماك مشوية + ٢٠٠غ رز", c: 480, p: 38, n: 48 },
+        { name: "٢٠٠غ قريدس + ١٠٠غ رز", c: 330, p: 48, n: 30 },
+        { name: "فاصوليا/بازيلاء/لوبيا/بامية ٣٥٠غ (لحمة رأس عصفور) + ١٠٠غ رز", c: 430, p: 22, n: 45 },
+        { name: "مجدرة على أنواعها ٣٥٠غ + ١٠٠غ لين", c: 500, p: 18, n: 72 },
+        { name: "ملوخية ٢٠٠غ + ١٠٠غ رز + ٢٠٠غ دجاج", c: 560, p: 60, n: 38 },
+        { name: "١٠ حبات سوشي", c: 380, p: 12, n: 60 },
+        { name: "٤ حبات من كريات الدجاج", recipe: true, c: 280, p: 18, n: 22 },
       ],
     },
   ],
@@ -918,16 +1246,19 @@ function findFood(query) {
 
 </script>
 <script>
-/* تطبيق الخطة الغذائية — منطق العرض والحساب */
+/* تطبيق الخطة الغذائية — منطق العرض والحساب (متعدّد اللغات) */
 (function () {
   "use strict";
 
   const STORAGE_KEY = "diet-plan-selection-v1";
   const $ = (sel, el = document) => el.querySelector(sel);
+  const T = (k, pp) => (window.I18N ? I18N.t(k, pp) : k);
+  const mealName = (id, a) => (window.I18N ? I18N.mealName(id, a) : a);
+  const mealHint = (id, a) => (window.I18N ? I18N.mealHint(id, a) : a);
+  const optName = (id, i, a) => (window.I18N ? I18N.optName(id, i, a) : a);
+  const fruitName = (i, a) => (window.I18N ? I18N.fruitName(i, a) : a);
 
-  // الحالة: خيار مختار لكل وجبة + قائمة الفواكه المختارة
   const state = loadState();
-
   function loadState() {
     try {
       const s = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -935,26 +1266,28 @@ function findFood(query) {
     } catch (_) {}
     return { meals: {}, fruit: [] };
   }
-  function saveState() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (_) {}
-  }
+  function saveState() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (_) {} }
 
-  const ar = (n) => (n == null ? "—" : new Intl.NumberFormat("ar-EG").format(n));
+  const ar = (n) => {
+    if (n == null) return "—";
+    const l = window.I18N ? I18N.getLang() : "ar";
+    const loc = l === "ar" ? "ar-EG" : l === "fr" ? "fr-FR" : "en-US";
+    try { return new Intl.NumberFormat(loc).format(n); } catch (_) { return String(n); }
+  };
 
   /* ---------- البناء ---------- */
   function render() {
     const root = $("#app");
     root.innerHTML = "";
-
     root.appendChild(buildHero());
-    root.appendChild(buildInfo("قواعد إرشادية", "📌", PLAN.rules));
-
+    const rulesL = PLAN.rules.map((r, i) => (window.I18N ? I18N.rule(i, r) : r));
+    root.appendChild(buildInfo(T("rulesTitle"), "📌", rulesL));
     PLAN.meals.forEach((meal) => root.appendChild(buildMeal(meal)));
-
     root.appendChild(buildFruit());
-    root.appendChild(buildInfo("ملاحظات هامة", "📝", PLAN.notes, true));
+    const notesL = PLAN.notes.map((r, i) => (window.I18N ? I18N.note(i, r) : r));
+    root.appendChild(buildInfo(T("notesTitle"), "📝", notesL, true));
     root.appendChild(buildFooter());
-
+    localizeStatic();
     updateTotals();
   }
 
@@ -963,8 +1296,8 @@ function findFood(query) {
     h.className = "hero";
     h.innerHTML = `
       <span class="brand">🏋️ ${PLAN.coach}</span>
-      <h1>${PLAN.title}</h1>
-      <p>${PLAN.subtitle}</p>`;
+      <h1>${T("appTitle")}</h1>
+      <p>${T("subtitle")}</p>`;
     return h;
   }
 
@@ -974,20 +1307,19 @@ function findFood(query) {
     const d = document.createElement("details");
     d.className = "info";
     if (open) d.open = true;
-    const lis = items.map((t) => `<li>${t}</li>`).join("");
     d.innerHTML = `
       <summary><span>${icon}</span><span>${title}</span><span class="chev">▾</span></summary>
-      <ul>${lis}</ul>`;
+      <ul>${items.map((t) => `<li>${t}</li>`).join("")}</ul>`;
     wrap.appendChild(d);
     return wrap;
   }
 
   function macroChips(o) {
-    if (o.c == null) return `<span class="macro muted">حسب المكونات</span>`;
+    if (o.c == null) return `<span class="macro muted">${T("byIngredients")}</span>`;
     return `
-      <span class="macro c">${ar(o.c)} سعرة</span>
-      <span class="macro p">${ar(o.p)}غ بروتين</span>
-      <span class="macro n">${ar(o.n)}غ نشويات</span>`;
+      <span class="macro c">${ar(o.c)} ${T("cal")}</span>
+      <span class="macro p">${ar(o.p)} ${T("gProtein")}</span>
+      <span class="macro n">${ar(o.n)} ${T("gCarbs")}</span>`;
   }
 
   function buildMeal(meal) {
@@ -995,37 +1327,31 @@ function findFood(query) {
     sec.className = "section meal";
     const panel = document.createElement("div");
     panel.className = "panel";
-
     panel.innerHTML = `
       <div class="meal-head">
         <div class="meal-icon">${meal.icon}</div>
         <div>
-          <p class="meal-title">${meal.name}</p>
-          <p class="meal-hint">${meal.hint}</p>
+          <p class="meal-title">${mealName(meal.id, meal.name)}</p>
+          <p class="meal-hint">${mealHint(meal.id, meal.hint)}</p>
         </div>
         <div class="meal-selected" data-sel="${meal.id}"></div>
       </div>`;
-
     const opts = document.createElement("div");
     opts.className = "options";
-
     meal.options.forEach((o, i) => {
       const row = document.createElement("label");
       row.className = "option";
-      const checked = state.meals[meal.id] === i;
-      if (checked) row.classList.add("checked");
+      if (state.meals[meal.id] === i) row.classList.add("checked");
       const ru = typeof recipeUrl === "function" ? recipeUrl(meal.id, i) : null;
-      const recipeBadge = ru ? `<a class="recipe" href="${ru}" target="_blank" rel="noopener">▶ وصفة</a>` : "";
+      const recipeBadge = ru ? `<a class="recipe" href="${ru}" target="_blank" rel="noopener">▶ ${T("recipe")}</a>` : "";
       row.innerHTML = `
         <span class="radio"></span>
         <span class="body">
-          <span class="name">${o.name}${recipeBadge}</span>
+          <span class="name">${optName(meal.id, i, o.name)}${recipeBadge}</span>
           <span class="macros">${macroChips(o)}</span>
         </span>`;
-      // فتح رابط الوصفة دون اختيار الخيار
       row.querySelectorAll("a.recipe").forEach((a) => a.addEventListener("click", (e) => e.stopPropagation()));
       row.addEventListener("click", () => {
-        // النقر على نفس الخيار يلغيه
         state.meals[meal.id] = state.meals[meal.id] === i ? undefined : i;
         if (state.meals[meal.id] === undefined) delete state.meals[meal.id];
         saveState();
@@ -1033,7 +1359,6 @@ function findFood(query) {
       });
       opts.appendChild(row);
     });
-
     panel.appendChild(opts);
     sec.appendChild(panel);
     return sec;
@@ -1044,21 +1369,18 @@ function findFood(query) {
     sec.className = "section";
     const panel = document.createElement("div");
     panel.className = "panel";
-
     panel.innerHTML = `
       <div class="meal-head">
         <div class="meal-icon">🍎</div>
         <div>
-          <p class="meal-title">الفواكه</p>
-          <p class="meal-hint">اختر نوعين يومياً</p>
+          <p class="meal-title">${T("fruits")}</p>
+          <p class="meal-hint">${T("chooseTwoFruits")}</p>
         </div>
         <div class="meal-selected">${ar(state.fruit.length)} / ${ar(PLAN.fruit.maxSelect)}</div>
       </div>`;
-
     const grid = document.createElement("div");
     grid.className = "fruit-grid";
     const full = state.fruit.length >= PLAN.fruit.maxSelect;
-
     PLAN.fruit.options.forEach((f, i) => {
       const chip = document.createElement("button");
       chip.type = "button";
@@ -1066,25 +1388,23 @@ function findFood(query) {
       const sel = state.fruit.includes(i);
       if (sel) chip.classList.add("checked");
       if (!sel && full) chip.classList.add("disabled");
-      chip.innerHTML = `<span>${f.name}</span>${f.grams ? `<span class="g">${ar(f.grams)}غ</span>` : ""}`;
+      chip.innerHTML = `<span>${fruitName(i, f.name)}</span>${f.grams ? `<span class="g">${ar(f.grams)}${T("g")}</span>` : ""}`;
       chip.addEventListener("click", () => {
-        if (sel) {
-          state.fruit = state.fruit.filter((x) => x !== i);
-        } else if (!full) {
-          state.fruit.push(i);
-        }
+        if (sel) state.fruit = state.fruit.filter((x) => x !== i);
+        else if (!full) state.fruit.push(i);
         saveState();
         render();
       });
       grid.appendChild(chip);
     });
-
     panel.appendChild(grid);
     const note = document.createElement("p");
     note.className = "fruit-note";
     const subRecipe = typeof FRUIT_RECIPE !== "undefined" && FRUIT_RECIPE
-      ? ` <a class="recipe" href="${FRUIT_RECIPE}" target="_blank" rel="noopener">▶ وصفة الشوكولا</a>` : "";
-    note.innerHTML = `${PLAN.fruit.note}<br>${PLAN.fruit.substitute}${subRecipe}`;
+      ? ` <a class="recipe" href="${FRUIT_RECIPE}" target="_blank" rel="noopener">▶ ${T("chocoRecipe")}</a>` : "";
+    const fn = window.I18N ? I18N.fruitNote(PLAN.fruit.note) : PLAN.fruit.note;
+    const fs = window.I18N ? I18N.fruitSub(PLAN.fruit.substitute) : PLAN.fruit.substitute;
+    note.innerHTML = `${fn}<br>${fs}${subRecipe}`;
     panel.appendChild(note);
     sec.appendChild(panel);
     return sec;
@@ -1093,7 +1413,7 @@ function findFood(query) {
   function buildFooter() {
     const f = document.createElement("footer");
     f.className = "foot";
-    f.innerHTML = `الخطة من إعداد <strong>${PLAN.coach}</strong> — القيم الغذائية تقريبية ومستخرجة من الملف.`;
+    f.innerHTML = `${T("footer")} <strong>${PLAN.coach}</strong> ${T("footerTail")}`;
     return f;
   }
 
@@ -1116,6 +1436,15 @@ function findFood(query) {
     try { const p = JSON.parse(localStorage.getItem("health-profile-v1")); return (p && p.target) || null; } catch (_) { return null; }
   }
 
+  function localizeStatic() {
+    const set = (sel, txt) => { const e = document.querySelector(sel); if (e) e.textContent = txt; };
+    set(".t-stat.c .u", T("cal"));
+    set(".t-stat.p .u", T("gProtein"));
+    set(".t-stat.n .u", T("gCarbs"));
+    set("#btn-print", "🖨️ " + T("print"));
+    set("#btn-reset", T("reset"));
+  }
+
   function updateTotals() {
     const t = totals();
     $("#t-cal").textContent = ar(t.c) + (t.hasUnknown ? "+" : "");
@@ -1127,9 +1456,10 @@ function findFood(query) {
     if (label) {
       if (target) {
         const rem = target - t.c;
-        label.innerHTML = `مجموع اليوم <span class="t-target">— الهدف ${ar(target)}${rem >= 0 ? " · متبقّي " + ar(rem) : " · تجاوزت " + ar(-rem)}</span>`;
+        const tail = rem >= 0 ? `${T("remaining")} ${ar(rem)}` : `${T("exceeded")} ${ar(-rem)}`;
+        label.innerHTML = `${T("dayTotal")} <span class="t-target">— ${T("goal")} ${ar(target)} · ${tail}</span>`;
       } else {
-        label.textContent = "مجموع اليوم";
+        label.textContent = T("dayTotal");
       }
     }
     const cal = $("#t-cal");
@@ -1138,122 +1468,118 @@ function findFood(query) {
     PLAN.meals.forEach((meal) => {
       const el = document.querySelector(`[data-sel="${meal.id}"]`);
       if (!el) return;
-      const idx = state.meals[meal.id];
-      el.textContent = idx == null ? "" : "✓ تم الاختيار";
+      el.textContent = state.meals[meal.id] == null ? "" : T("selected");
     });
   }
 
-  /* ---------- أزرار ---------- */
   function bindActions() {
-    $("#btn-reset").addEventListener("click", () => {
-      state.meals = {};
-      state.fruit = [];
-      saveState();
-      render();
-    });
-    $("#btn-print").addEventListener("click", () => window.print());
+    const r = $("#btn-reset"), p = $("#btn-print");
+    if (r) r.addEventListener("click", () => { state.meals = {}; state.fruit = []; saveState(); render(); });
+    if (p) p.addEventListener("click", () => window.print());
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
-    render();
-    bindActions();
-  });
+  document.addEventListener("DOMContentLoaded", () => { render(); bindActions(); });
   document.addEventListener("target-changed", updateTotals);
 })();
 
 </script>
 <script>
 /*
- * مؤشر كتلة الجسم (BMI) ومعدل الأيض (BMR) وتحديد الهدف اليومي للسعرات
- * النتيجة تُحفظ وتُستخدم لتخصيص الخطة (شريط المجموع + برنامج الأسبوع).
+ * مؤشر كتلة الجسم (BMI) ومعدل الأيض (BMR) والهدف اليومي للسعرات
+ * يدعم تحديد عدد الأسابيع للوصول إلى الوزن الهدف. النتيجة تُحفظ وتُخصّص الخطة.
  */
 (function () {
   "use strict";
-
   const ad = (s) => String(s).replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[d]);
-  const r1 = (v) => ad(Math.round(v * 10) / 10);
+  const NUM = (x) => (window.I18N && I18N.getLang() === "ar" ? ad(x) : String(x));
+  const r1 = (v) => NUM(Math.round(v * 10) / 10);
+  const T = (k, p) => (window.I18N ? I18N.t(k, p) : k);
   const KEY = "health-profile-v1";
   const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch (_) { return null; } };
   const save = (p) => { try { localStorage.setItem(KEY, JSON.stringify(p)); } catch (_) {} };
 
   function bmiCat(b) {
-    if (b < 18.5) return { label: "نقص وزن", cls: "warn" };
-    if (b < 25) return { label: "وزن طبيعي", cls: "ok" };
-    if (b < 30) return { label: "زيادة وزن", cls: "warn" };
-    return { label: "سمنة", cls: "bad" };
+    if (b < 18.5) return { key: "catUnder", cls: "warn" };
+    if (b < 25) return { key: "catNormal", cls: "ok" };
+    if (b < 30) return { key: "catOver", cls: "warn" };
+    return { key: "catObese", cls: "bad" };
   }
 
-  // حساب القيم
   function compute(p) {
     const h = p.height / 100;
     const bmi = p.weight / (h * h);
     const bmr = 10 * p.weight + 6.25 * p.height - 5 * p.age + (p.sex === "m" ? 5 : -161);
     const fac = { sed: 1.2, light: 1.375, mod: 1.55, active: 1.725, vactive: 1.9 }[p.activity] || 1.2;
     const tdee = bmr * fac;
-    let target;
-    if (p.goal === "lose") target = Math.max(Math.round(tdee - 500), p.sex === "m" ? 1500 : 1200);
-    else if (p.goal === "gain") target = Math.round(tdee + 350);
-    else target = Math.round(tdee);
-    const loW = 18.5 * h * h, hiW = 24.9 * h * h;
-    const protein = Math.round((p.goal === "lose" ? 2.0 : 1.8) * p.weight);
-    let weeks = null;
-    if (p.goalWeight) {
+    const floor = p.sex === "m" ? 1500 : 1200;
+    let target, weeks = p.weeks || null, rate = null;
+    if (p.goalWeight && p.weeks) {
+      const changeKg = p.goalWeight - p.weight;
+      const dailyDelta = (changeKg * 7700) / (p.weeks * 7);
+      target = Math.max(Math.round(tdee + dailyDelta), floor);
+      rate = changeKg / p.weeks;
+    } else if (p.goal === "lose") {
+      target = Math.max(Math.round(tdee - 500), floor);
+    } else if (p.goal === "gain") {
+      target = Math.round(tdee + 350);
+    } else {
+      target = Math.round(tdee);
+    }
+    if (p.goalWeight && !p.weeks) {
       const diff = Math.abs(p.weight - p.goalWeight);
-      const perDay = Math.abs(tdee - target) / 7700; // كغ/يوم
+      const perDay = Math.abs(tdee - target) / 7700;
       weeks = perDay > 0 ? Math.ceil(diff / (perDay * 7)) : null;
     }
-    return { bmi, cat: bmiCat(bmi), bmr: Math.round(bmr), tdee: Math.round(tdee), target, loW, hiW, protein, weeks };
+    const loW = 18.5 * h * h, hiW = 24.9 * h * h;
+    const gp = p.goalWeight && p.goalWeight < p.weight ? "lose" : p.goal;
+    const protein = Math.round((gp === "lose" ? 2.0 : 1.8) * p.weight);
+    return { bmi, cat: bmiCat(bmi), bmr: Math.round(bmr), tdee: Math.round(tdee), target, loW, hiW, protein, weeks, rate };
   }
 
   function adviceText(p, c) {
-    if (p.goal === "lose")
-      return `هدفك إنقاص الوزن. التزم بحوالي ${ad(c.target)} سعرة يومياً مع التركيز على البروتين (≈${ad(c.protein)}غ) والإكثار من الحركة (٦٠٠٠+ خطوة). النزول الصحي ٠٫٥–١ كغ بالأسبوع.`;
-    if (p.goal === "gain")
-      return `هدفك زيادة الوزن. استهدف حوالي ${ad(c.target)} سعرة يومياً مع بروتين كافٍ (≈${ad(c.protein)}غ) وتمارين مقاومة لبناء العضل.`;
-    return `هدفك المحافظة على وزنك. استهلك حوالي ${ad(c.target)} سعرة يومياً مع بروتين ≈${ad(c.protein)}غ ونشاط منتظم.`;
+    const params = { t: NUM(c.target), p: NUM(c.protein) };
+    if (p.goal === "lose" || (p.goalWeight && p.goalWeight < p.weight)) return T("hAdviceLose", params);
+    if (p.goal === "gain" || (p.goalWeight && p.goalWeight > p.weight)) return T("hAdviceGain", params);
+    return T("hAdviceMaintain", params);
   }
 
   /* ---------- الواجهة ---------- */
   function injectUI() {
-    const fab = document.createElement("button");
-    fab.id = "health-fab";
-    fab.type = "button";
-    fab.setAttribute("aria-label", "حاسبة الكتلة والسعرات");
-    fab.innerHTML = "🧮";
-    fab.addEventListener("click", open);
-    document.body.appendChild(fab);
-
     const modal = document.createElement("div");
     modal.id = "health-modal";
     modal.hidden = true;
+    document.body.appendChild(modal);
+    renderShell();
+    modal.addEventListener("click", (e) => { if (e.target === modal) modal.hidden = true; });
+  }
+
+  function renderShell() {
     const p = load() || {};
     const opt = (v, l, sel) => `<option value="${v}"${sel === v ? " selected" : ""}>${l}</option>`;
-    modal.innerHTML = `
-      <div class="health-sheet">
-        <div class="scan-head">
-          <strong>الكتلة والسعرات (BMI / BMR)</strong>
-          <button type="button" id="health-close" aria-label="إغلاق">✕</button>
+    document.getElementById("health-modal").innerHTML = `
+      <div class="health-sheet sheet">
+        <div class="sheet-head">
+          <strong>${T("healthTitle")}</strong>
+          <button type="button" id="health-close" aria-label="✕" class="icon-btn">✕</button>
         </div>
         <div class="hform">
-          <label class="mfield"><span>الجنس</span><select id="h-sex">${opt("m", "ذكر", p.sex)}${opt("f", "أنثى", p.sex)}</select></label>
-          <label class="mfield"><span>العمر (سنة)</span><input id="h-age" type="number" inputmode="numeric" value="${p.age || ""}" /></label>
-          <label class="mfield"><span>الطول (سم)</span><input id="h-height" type="number" inputmode="decimal" value="${p.height || ""}" /></label>
-          <label class="mfield"><span>الوزن (كغ)</span><input id="h-weight" type="number" inputmode="decimal" value="${p.weight || ""}" /></label>
-          <label class="mfield"><span>الوزن الهدف (كغ) — اختياري</span><input id="h-goalw" type="number" inputmode="decimal" value="${p.goalWeight || ""}" /></label>
-          <label class="mfield"><span>مستوى النشاط</span><select id="h-activity">
-            ${opt("sed", "خامل (بلا تمرين)", p.activity)}${opt("light", "خفيف (١-٣ أيام)", p.activity)}${opt("mod", "متوسط (٣-٥ أيام)", p.activity)}${opt("active", "نشيط (٦-٧ أيام)", p.activity)}${opt("vactive", "نشيط جداً", p.activity)}
+          <label class="mfield"><span>${T("sex")}</span><select id="h-sex">${opt("m", T("male"), p.sex)}${opt("f", T("female"), p.sex)}</select></label>
+          <label class="mfield"><span>${T("age")}</span><input id="h-age" type="number" inputmode="numeric" value="${p.age || ""}" /></label>
+          <label class="mfield"><span>${T("height")}</span><input id="h-height" type="number" inputmode="decimal" value="${p.height || ""}" /></label>
+          <label class="mfield"><span>${T("weight")}</span><input id="h-weight" type="number" inputmode="decimal" value="${p.weight || ""}" /></label>
+          <label class="mfield"><span>${T("goalWeight")}</span><input id="h-goalw" type="number" inputmode="decimal" value="${p.goalWeight || ""}" /></label>
+          <label class="mfield"><span>${T("weeksField")}</span><input id="h-weeks" type="number" inputmode="numeric" value="${p.weeks || ""}" /></label>
+          <label class="mfield"><span>${T("activity")}</span><select id="h-activity">
+            ${opt("sed", T("actSed"), p.activity)}${opt("light", T("actLight"), p.activity)}${opt("mod", T("actMod"), p.activity)}${opt("active", T("actActive"), p.activity)}${opt("vactive", T("actVactive"), p.activity)}
           </select></label>
-          <label class="mfield"><span>الهدف</span><select id="h-goal">
-            ${opt("lose", "إنقاص الوزن", p.goal)}${opt("maintain", "المحافظة", p.goal)}${opt("gain", "زيادة الوزن", p.goal)}
+          <label class="mfield"><span>${T("goalLabel")}</span><select id="h-goal">
+            ${opt("lose", T("goalLose"), p.goal)}${opt("maintain", T("goalMaintain"), p.goal)}${opt("gain", T("goalGain"), p.goal)}
           </select></label>
         </div>
-        <button type="button" id="h-calc" class="btn primary" style="width:100%">احسب</button>
+        <button type="button" id="h-calc" class="btn primary block">${T("calculate")}</button>
         <div id="health-result"></div>
       </div>`;
-    document.body.appendChild(modal);
-
-    document.getElementById("health-close").addEventListener("click", () => { modal.hidden = true; });
-    modal.addEventListener("click", (e) => { if (e.target === modal) modal.hidden = true; });
+    document.getElementById("health-close").addEventListener("click", () => { document.getElementById("health-modal").hidden = true; });
     document.getElementById("h-calc").addEventListener("click", calc);
   }
 
@@ -1266,7 +1592,8 @@ function findFood(query) {
     const v = (id) => document.getElementById(id).value;
     return {
       sex: v("h-sex"), age: +v("h-age"), height: +v("h-height"), weight: +v("h-weight"),
-      goalWeight: v("h-goalw") ? +v("h-goalw") : null, activity: v("h-activity"), goal: v("h-goal"),
+      goalWeight: v("h-goalw") ? +v("h-goalw") : null, weeks: v("h-weeks") ? +v("h-weeks") : null,
+      activity: v("h-activity"), goal: v("h-goal"),
     };
   }
 
@@ -1274,40 +1601,43 @@ function findFood(query) {
     const p = readForm();
     const res = document.getElementById("health-result");
     if (!(p.age > 0 && p.height > 0 && p.weight > 0)) {
-      res.innerHTML = `<p class="scan-status err">يرجى إدخال العمر والطول والوزن.</p>`;
+      res.innerHTML = `<p class="form-err">${T("needInputs")}</p>`;
       return;
     }
     const c = compute(p);
     const stat = (l, v, u) => `<div class="hstat"><span>${l}</span><b>${v}<small>${u}</small></b></div>`;
+    const fast = c.rate != null && Math.abs(c.rate) > 1;
     res.innerHTML = `
-      <div class="scan-card">
+      <div class="card">
         <div class="hbmi">
-          <div><div class="hbmi-num">${r1(c.bmi)}</div><div class="muted">مؤشر الكتلة BMI</div></div>
-          <span class="verdict ${c.cat.cls}" style="margin:0;flex:1">${c.cat.label}</span>
+          <div><div class="hbmi-num">${r1(c.bmi)}</div><div class="muted">${T("bmiLabel")}</div></div>
+          <span class="verdict ${c.cat.cls} grow">${T(c.cat.key)}</span>
         </div>
-        <p class="muted" style="margin:4px 0 12px">الوزن الصحي لطولك: ${r1(c.loW)}–${r1(c.hiW)} كغ</p>
+        <p class="muted mt4">${T("healthyRange")}: ${r1(c.loW)}–${r1(c.hiW)} ${T("g") === "g" ? "kg" : "كغ"}</p>
         <div class="hgrid">
-          ${stat("معدل الأيض BMR", ad(c.bmr), " سعرة")}
-          ${stat("احتياجك للمحافظة", ad(c.tdee), " سعرة")}
-          ${stat("بروتين مقترح", ad(c.protein), " غ/يوم")}
-          ${c.weeks ? stat("الوصول للهدف", ad(c.weeks), " أسبوع تقريباً") : ""}
+          ${stat(T("bmrLabel"), NUM(c.bmr), " " + T("cal"))}
+          ${stat(T("maintainNeed"), NUM(c.tdee), " " + T("cal"))}
+          ${stat(T("proteinSuggest"), NUM(c.protein), " " + T("perDay"))}
+          ${c.weeks ? stat(T("reachGoal"), NUM(c.weeks), " " + T("weeksApprox")) : ""}
+          ${c.rate != null ? stat(T("rateLabel"), r1(Math.abs(c.rate)), " " + T("kgPerWeek")) : ""}
         </div>
+        ${fast ? `<p class="form-err">${T("rateFast")}</p>` : ""}
         <div class="htarget">
-          <span>هدفك اليومي</span>
-          <b>${ad(c.target)} <small>سعرة</small></b>
+          <span>${T("dailyGoal")}</span>
+          <b>${NUM(c.target)} <small>${T("cal")}</small></b>
         </div>
         <div class="advice">${adviceText(p, c)}</div>
-        <button type="button" id="h-apply" class="btn primary" style="width:100%;margin-top:10px">✓ اعتمد هذا الهدف للخطة</button>
-        <p id="h-applied" class="muted" style="text-align:center;margin:8px 0 0"></p>
+        <button type="button" id="h-apply" class="btn primary block mt10">${T("applyGoal")}</button>
+        <p id="h-applied" class="muted center mt8"></p>
       </div>`;
     document.getElementById("h-apply").addEventListener("click", () => {
-      const saved = Object.assign({}, p, { target: c.target, protein: c.protein, bmi: c.bmi });
-      save(saved);
-      document.getElementById("h-applied").textContent = `تم اعتماد هدف ${ad(c.target)} سعرة — انعكس على الخطة وبرنامج الأسبوع.`;
+      save(Object.assign({}, p, { target: c.target, protein: c.protein, bmi: c.bmi }));
+      document.getElementById("h-applied").textContent = T("goalApplied");
       try { document.dispatchEvent(new Event("target-changed")); } catch (_) {}
     });
   }
 
+  window.DietHealth = { open };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", injectUI);
   else injectUI();
 })();
@@ -1323,8 +1653,9 @@ function findFood(query) {
 (function () {
   "use strict";
 
-  const ad = (s) => String(s).replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[d]);
+  const ad = (s) => (window.I18N && I18N.getLang() !== "ar") ? String(s) : String(s).replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[d]);
   const esc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const T = (k) => (window.I18N ? I18N.t(k) : k);
   const KEY = "week-plan-v1";
   const DAY = 86400000;
 
@@ -1425,33 +1756,26 @@ function findFood(query) {
   }
 
   const fmtDate = (iso) => {
-    try { return new Intl.DateTimeFormat("ar", { weekday: "long", day: "numeric", month: "long" }).format(new Date(iso)); }
+    const lng = window.I18N ? I18N.getLang() : "ar";
+    try { return new Intl.DateTimeFormat(lng, { weekday: "long", day: "numeric", month: "long" }).format(new Date(iso)); }
     catch (_) { return iso; }
   };
 
   /* ---------- الواجهة ---------- */
   function injectUI() {
-    const fab = document.createElement("button");
-    fab.id = "cal-fab";
-    fab.type = "button";
-    fab.setAttribute("aria-label", "برنامج الأسبوع");
-    fab.innerHTML = "📅";
-    fab.addEventListener("click", open);
-    document.body.appendChild(fab);
-
     const modal = document.createElement("div");
     modal.id = "cal-modal";
     modal.hidden = true;
     modal.innerHTML = `
-      <div class="cal-sheet">
-        <div class="cal-head">
-          <strong>برنامج الأسبوع</strong>
+      <div class="cal-sheet sheet">
+        <div class="cal-head sheet-head">
+          <strong>${T("weekProgram")}</strong>
           <div class="cal-head-actions">
-            <button type="button" id="cal-regen" class="btn">🎲 خطة جديدة</button>
-            <button type="button" id="cal-close" aria-label="إغلاق">✕</button>
+            <button type="button" id="cal-regen" class="btn">${T("newPlan")}</button>
+            <button type="button" id="cal-close" class="icon-btn" aria-label="✕">✕</button>
           </div>
         </div>
-        <p class="cal-note">توصيات يومية — خيار لكل وجبة بدون تكرار خلال الأسبوع.</p>
+        <p class="cal-note">${T("weekNote")}</p>
         <div id="cal-list"></div>
       </div>`;
     document.body.appendChild(modal);
@@ -1466,29 +1790,31 @@ function findFood(query) {
     render();
   }
 
+  const optN = (id, idx, ar) => (window.I18N ? I18N.optName(id, idx, ar) : ar);
+  const fruitN = (idx, ar) => (window.I18N ? I18N.fruitName(idx, ar) : ar);
   function mealRow(m, idx) {
     const o = m.options[idx];
     const url = typeof recipeUrl === "function" ? recipeUrl(m.id, idx) : null;
     return `<div class="cal-meal">
       <span class="cal-ic">${m.icon}</span>
-      <span class="cal-mname">${esc(o ? o.name : "—")}${url ? ` <a class="recipe" href="${url}" target="_blank" rel="noopener">▶</a>` : ""}</span>
+      <span class="cal-mname">${esc(o ? optN(m.id, idx, o.name) : "—")}${url ? ` <a class="recipe" href="${url}" target="_blank" rel="noopener">▶</a>` : ""}</span>
       ${o && o.c != null ? `<span class="cal-kcal">${ad(o.c)}</span>` : ""}
     </div>`;
   }
   function dayBody(w, i) {
-    const fr = (w.fruits[i] || []).filter((x) => x != null).map((fx) => esc(PLAN.fruit.options[fx].name)).join(" + ");
+    const fr = (w.fruits[i] || []).filter((x) => x != null).map((fx) => esc(fruitN(fx, PLAN.fruit.options[fx].name))).join(" + ");
     return PLAN.meals.map((m) => mealRow(m, w.meals[m.id][i])).join("")
       + `<div class="cal-meal"><span class="cal-ic">🍎</span><span class="cal-mname">${fr}</span></div>`;
   }
   function macrosLine(t) {
-    return `<div class="cal-macros"><span>${ad(t.p)}${t.unknown ? "+" : ""}غ بروتين</span><span>${ad(t.n)}${t.unknown ? "+" : ""}غ نشويات</span></div>`;
+    return `<div class="cal-macros"><span>${ad(t.p)}${t.unknown ? "+" : ""} ${T("gProtein")}</span><span>${ad(t.n)}${t.unknown ? "+" : ""} ${T("gCarbs")}</span></div>`;
   }
   function targetChip(c) {
     const tgt = getTarget();
     if (!tgt) return "";
     const diff = c - tgt;
-    if (Math.abs(diff) <= 0.1 * tgt) return `<span class="cal-tgt ok">✓ ضمن هدفك</span>`;
-    return `<span class="cal-tgt ${diff > 0 ? "over" : "under"}">${diff > 0 ? "+" : "−"}${ad(Math.abs(diff))} سعرة</span>`;
+    if (Math.abs(diff) <= 0.1 * tgt) return `<span class="cal-tgt ok">${T("onTarget")}</span>`;
+    return `<span class="cal-tgt ${diff > 0 ? "over" : "under"}">${diff > 0 ? "+" : "−"}${ad(Math.abs(diff))} ${T("cal")}</span>`;
   }
 
   function render() {
@@ -1507,8 +1833,8 @@ function findFood(query) {
         <div class="cal-day today">
           <div class="cal-dhead">
             <span class="cal-date">${fmtDate(today.iso)}</span>
-            <span class="cal-badge">اليوم</span>
-            <span class="cal-total">${ad(today.t.c)}${today.t.unknown ? "+" : ""} سعرة</span>
+            <span class="cal-badge">${T("today")}</span>
+            <span class="cal-total">${ad(today.t.c)}${today.t.unknown ? "+" : ""} ${T("cal")}</span>
             ${targetChip(today.t.c)}
           </div>
           ${dayBody(w, today.i)}${macrosLine(today.t)}
@@ -1520,7 +1846,7 @@ function findFood(query) {
         <details class="cal-fold">
           <summary>
             <span class="cal-date">${fmtDate(d.iso)}</span>
-            <span class="cal-total">${ad(d.t.c)}${d.t.unknown ? "+" : ""} سعرة</span>
+            <span class="cal-total">${ad(d.t.c)}${d.t.unknown ? "+" : ""} ${T("cal")}</span>
             ${targetChip(d.t.c)}
             <span class="cal-chev">▾</span>
           </summary>
@@ -1539,6 +1865,7 @@ function findFood(query) {
     if (modal && !modal.hidden) render();
   });
 
+  window.DietCalendar = { open };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", injectUI);
   else injectUI();
 })();
@@ -1600,14 +1927,6 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
 
   /* ---------- بناء الواجهة ---------- */
   function injectUI() {
-    const fab = document.createElement("button");
-    fab.id = "scan-fab";
-    fab.type = "button";
-    fab.setAttribute("aria-label", "مسح باركود");
-    fab.innerHTML = "📷";
-    fab.addEventListener("click", open);
-    document.body.appendChild(fab);
-
     const modal = document.createElement("div");
     modal.id = "scan-modal";
     modal.hidden = true;
@@ -2083,8 +2402,106 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     });
   }
 
+  window.DietScanner = { open };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", injectUI);
   else injectUI();
+})();
+
+</script>
+<script>
+/*
+ * طبقة الواجهة: المظهر (داكن/فاتح) + شريط التنقّل السفلي + الإعدادات (اللغة والمظهر)
+ */
+(function () {
+  "use strict";
+  const T = (k) => (window.I18N ? I18N.t(k) : k);
+
+  /* ---------- المظهر ---------- */
+  const THKEY = "theme";
+  const getThemePref = () => { try { return localStorage.getItem(THKEY) || "system"; } catch (_) { return "system"; } };
+  function applyTheme() {
+    const pref = getThemePref();
+    const dark = pref === "dark" || (pref === "system" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", dark ? "#0f1115" : "#f4f6fb");
+  }
+  function setTheme(pref) {
+    try { localStorage.setItem(THKEY, pref); } catch (_) {}
+    applyTheme();
+    renderSettings();
+  }
+  applyTheme();
+  if (window.matchMedia) matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { if (getThemePref() === "system") applyTheme(); });
+
+  /* ---------- أيقونات ---------- */
+  const ICON = {
+    plan: '<svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M8 9h6M8 13h8M8 17h5"/></svg>',
+    week: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>',
+    scan: '<svg viewBox="0 0 24 24"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><path d="M7 8v8M10 8v8M13 8v8M17 8v8"/></svg>',
+    bmi: '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 12l5-5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>',
+    settings: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 0 0-1.7-1L14.5 2h-4l-.4 2.5a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.5c.07-.32.1-.65.1-1z"/></svg>',
+  };
+
+  /* ---------- شريط التنقّل ---------- */
+  function buildNav() {
+    const nav = document.createElement("nav");
+    nav.id = "bottom-nav";
+    const items = [
+      { id: "plan", label: T("navPlan"), act: goPlan },
+      { id: "week", label: T("navCalendar"), act: () => window.DietCalendar && DietCalendar.open() },
+      { id: "scan", label: T("navScan"), act: () => window.DietScanner && DietScanner.open() },
+      { id: "bmi", label: T("navBmi"), act: () => window.DietHealth && DietHealth.open() },
+      { id: "settings", label: T("navSettings"), act: openSettings },
+    ];
+    nav.innerHTML = items.map((it) => `<button type="button" class="nav-item" data-id="${it.id}">${ICON[it.id]}<span>${it.label}</span></button>`).join("");
+    document.body.appendChild(nav);
+    nav.querySelectorAll(".nav-item").forEach((b, i) => b.addEventListener("click", () => {
+      nav.querySelectorAll(".nav-item").forEach((x) => x.classList.remove("active"));
+      b.classList.add("active");
+      items[i].act();
+    }));
+    nav.querySelector('[data-id="plan"]').classList.add("active");
+  }
+  function goPlan() {
+    document.querySelectorAll("#scan-modal,#cal-modal,#health-modal,#settings-modal").forEach((m) => (m.hidden = true));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /* ---------- الإعدادات ---------- */
+  function buildSettings() {
+    const m = document.createElement("div");
+    m.id = "settings-modal";
+    m.hidden = true;
+    document.body.appendChild(m);
+    m.addEventListener("click", (e) => { if (e.target === m) m.hidden = true; });
+  }
+  function openSettings() { renderSettings(); document.getElementById("settings-modal").hidden = false; }
+  function renderSettings() {
+    const m = document.getElementById("settings-modal");
+    if (!m) return;
+    const lang = window.I18N ? I18N.getLang() : "ar";
+    const pref = getThemePref();
+    const langs = [["ar", "العربية"], ["en", "English"], ["fr", "Français"]];
+    const themes = [["dark", T("dark")], ["light", T("light")], ["system", T("system")]];
+    m.innerHTML = `
+      <div class="sheet settings-sheet">
+        <div class="sheet-head"><strong>${T("settings")}</strong><button type="button" id="set-close" class="icon-btn" aria-label="✕">✕</button></div>
+        <div class="set-group"><div class="set-label">${T("language")}</div><div class="seg">
+          ${langs.map(([v, l]) => `<button type="button" class="seg-btn${lang === v ? " on" : ""}" data-lang="${v}">${l}</button>`).join("")}
+        </div></div>
+        <div class="set-group"><div class="set-label">${T("theme")}</div><div class="seg">
+          ${themes.map(([v, l]) => `<button type="button" class="seg-btn${pref === v ? " on" : ""}" data-theme="${v}">${l}</button>`).join("")}
+        </div></div>
+      </div>`;
+    m.querySelector("#set-close").addEventListener("click", () => { m.hidden = true; });
+    m.querySelectorAll("[data-lang]").forEach((b) => b.addEventListener("click", () => window.I18N && I18N.setLang(b.dataset.lang)));
+    m.querySelectorAll("[data-theme]").forEach((b) => b.addEventListener("click", () => setTheme(b.dataset.theme)));
+  }
+
+  function init() { buildSettings(); buildNav(); }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
 })();
 
 </script>
