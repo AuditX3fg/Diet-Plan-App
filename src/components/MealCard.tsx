@@ -63,9 +63,9 @@ export function MealCard({ meal, selections, open, onToggle, onPortionChange }: 
                     </span>
                     {active && (
                       <div className="portion-control" aria-label={tr(`حصة ${mealName(option)}`, `${mealName(option)} portion`)}>
-                        <button onClick={() => onPortionChange(option.id, portion - 0.25)} aria-label={tr(`تقليل حصة ${mealName(option)}`, `Decrease ${mealName(option)} portion`)}><Minus size={13} /></button>
+                        <button onClick={() => onPortionChange(option.id, portion - 0.25)} aria-label={tr(`تقليل حصة ${mealName(option)}`, `Decrease ${mealName(option)} portion`)}><Minus size={18} /></button>
                         <strong>{formatPortion(portion)} <small>{tr('حصة', portion === 1 ? 'portion' : 'portions')}</small></strong>
-                        <button disabled={portion >= 4} onClick={() => onPortionChange(option.id, portion + 0.25)} aria-label={tr(`زيادة حصة ${mealName(option)}`, `Increase ${mealName(option)} portion`)}><Plus size={13} /></button>
+                        <button disabled={portion >= 4} onClick={() => onPortionChange(option.id, portion + 0.25)} aria-label={tr(`زيادة حصة ${mealName(option)}`, `Increase ${mealName(option)} portion`)}><Plus size={18} /></button>
                       </div>
                     )}
                   </div>
