@@ -54,3 +54,17 @@ CREATE TABLE IF NOT EXISTS email_events (
 );
 
 CREATE INDEX IF NOT EXISTS email_events_user_kind_idx ON email_events(user_id, kind, created_at);
+
+CREATE TABLE IF NOT EXISTS training_videos (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  session_id TEXT NOT NULL CHECK (session_id IN ('day-1', 'day-2', 'day-3', 'day-4', 'abs')),
+  title TEXT NOT NULL,
+  original_name TEXT NOT NULL,
+  stored_name TEXT NOT NULL UNIQUE,
+  mime_type TEXT NOT NULL,
+  size_bytes INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS training_videos_user_session_idx ON training_videos(user_id, session_id, created_at);

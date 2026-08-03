@@ -372,7 +372,7 @@ function DietApp({ account, onAccountChange, onLogout }: DietAppProps) {
       page = <ScannerPage history={scanHistory} shoppingList={shoppingList} onResult={addScanResult} onToggleShopping={toggleShopping} onClearHistory={() => setScanHistory([])} />
       break
     case 'workouts':
-      page = <WorkoutsPage profile={profile} preference={sportPreference} onPreferenceChange={setSportPreference} />
+      page = <WorkoutsPage username={account.username} profile={profile} preference={sportPreference} onPreferenceChange={setSportPreference} />
       break
     case 'progress':
       page = <ProgressPage days={days} weeklyTotals={weeklyTotals} profile={profile} weightEntries={weightEntries} onAddWeight={addWeight} />

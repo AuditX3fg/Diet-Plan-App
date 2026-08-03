@@ -1,16 +1,29 @@
 import { createServer } from 'node:http'
 import { randomInt, randomUUID } from 'node:crypto'
-import { authenticate, createSession, createUser, emailEvents, findUser, getState, mergeState, publicAccount, recordEmailEvent, replacePassword, revokeSession, storeChallenge, updateUser, verifyChallenge, verifyOfflineRecovery, verifyPassword } from './database.mjs'
+import { createReadStream } from 'node:fs'
+import { mkdir, open, rename, rm, stat } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
+import { authenticate, createSession, createTrainingVideo, createUser, deleteTrainingVideo, emailEvents, findUser, getState, listTrainingVideos, mergeState, publicAccount, recordEmailEvent, replacePassword, revokeSession, storeChallenge, trainingVideoFile, updateUser, verifyChallenge, verifyOfflineRecovery, verifyPassword } from './database.mjs'
 
 const host = process.env.HOST || '0.0.0.0'
 const port = Number(process.env.PORT || 8787)
 const allowedOrigin = process.env.ALLOWED_ORIGIN || '*'
 const resendApiKey = process.env.RESEND_API_KEY || ''
 const fromEmail = process.env.RECOVERY_FROM_EMAIL || ''
+const mediaRoot = resolve(process.env.TAWAZON_MEDIA_DIR || './data/training-videos')
 const challengeLifetimeMs = 15 * 60 * 1000
 const resendDelayMs = 60 * 1000
 const maxEmailsPerHour = 5
 const maxVerificationAttempts = 5
+const maxTrainingVideoBytes = 100 * 1024 * 1024
+const maxTrainingLibraryBytes = 2 * 1024 * 1024 * 1024
+const maxTrainingVideosPerDay = 50
+const trainingSessions = new Set(['day-1', 'day-2', 'day-3', 'day-4', 'abs'])
+const videoMimeExtensions = new Map([
+  ['video/mp4', '.mp4'],
+  ['video/quicktime', '.mov'],
+  ['video/webm', '.webm'],
+])
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -98,12 +111,119 @@ function enforceIpLimit(request) {
 function responseHeaders() {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Headers': 'Content-Type, Accept, Authorization',
-    'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Accept, Authorization, Range',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
     'Cache-Control': 'no-store',
     'Content-Type': 'application/json; charset=utf-8',
     'X-Content-Type-Options': 'nosniff',
   }
+}
+
+function trainingVideoPayload(video) {
+  if (!video) return null
+  const { storedName: _storedName, ...payload } = video
+  return payload
+}
+
+async function uploadTrainingVideo(request, session, url) {
+  const sessionId = String(url.searchParams.get('sessionId') || '')
+  const title = String(url.searchParams.get('title') || '').trim().slice(0, 120)
+  const originalName = String(url.searchParams.get('originalName') || 'training-video').trim().slice(0, 180)
+  const mimeType = String(request.headers['content-type'] || '').split(';')[0].trim().toLowerCase()
+  const extension = videoMimeExtensions.get(mimeType)
+  const announcedSize = Number(request.headers['content-length'] || 0)
+  if (!trainingSessions.has(sessionId)) throw new HttpError(400, 'Choose a valid training day.')
+  if (title.length < 2) throw new HttpError(400, 'Enter a video title.')
+  if (!extension) throw new HttpError(415, 'Upload an MP4, MOV, or WebM video.')
+  if (announcedSize > maxTrainingVideoBytes) throw new HttpError(413, 'Training videos must be 100 MB or smaller.')
+  const currentVideos = listTrainingVideos(session.userId)
+  if (currentVideos.filter((video) => video.sessionId === sessionId).length >= maxTrainingVideosPerDay) throw new HttpError(409, 'This training day already has the maximum of 50 videos.')
+  const currentLibraryBytes = currentVideos.reduce((total, video) => total + video.sizeBytes, 0)
+  if (announcedSize && currentLibraryBytes + announcedSize > maxTrainingLibraryBytes) throw new HttpError(413, 'This account has reached its 2 GB training-library limit.')
+
+  const id = randomUUID()
+  const userDirectory = join(mediaRoot, session.userId)
+  const storedName = `${id}${extension}`
+  const finalPath = join(userDirectory, storedName)
+  const temporaryPath = `${finalPath}.uploading`
+  await mkdir(userDirectory, { recursive: true })
+  const handle = await open(temporaryPath, 'wx')
+  let sizeBytes = 0
+  try {
+    for await (const chunk of request) {
+      sizeBytes += chunk.length
+      if (sizeBytes > maxTrainingVideoBytes) throw new HttpError(413, 'Training videos must be 100 MB or smaller.')
+      await handle.write(chunk)
+    }
+  } catch (error) {
+    await handle.close().catch(() => undefined)
+    await rm(temporaryPath, { force: true }).catch(() => undefined)
+    throw error
+  }
+  await handle.close()
+  if (!sizeBytes) {
+    await rm(temporaryPath, { force: true })
+    throw new HttpError(400, 'The selected video is empty.')
+  }
+  if (currentLibraryBytes + sizeBytes > maxTrainingLibraryBytes) {
+    await rm(temporaryPath, { force: true })
+    throw new HttpError(413, 'This account has reached its 2 GB training-library limit.')
+  }
+  await rename(temporaryPath, finalPath)
+  try {
+    return trainingVideoPayload(createTrainingVideo({ id, userId: session.userId, sessionId, title, originalName, storedName, mimeType, sizeBytes }))
+  } catch (error) {
+    await rm(finalPath, { force: true }).catch(() => undefined)
+    throw error
+  }
+}
+
+async function removeTrainingVideo(session, videoId) {
+  const video = trainingVideoFile(session.userId, videoId)
+  if (!video) throw new HttpError(404, 'Training video not found.')
+  await rm(join(mediaRoot, session.userId, video.storedName), { force: true })
+  deleteTrainingVideo(session.userId, videoId)
+}
+
+async function streamTrainingVideo(request, response, session, videoId) {
+  const video = trainingVideoFile(session.userId, videoId)
+  if (!video) throw new HttpError(404, 'Training video not found.')
+  const filePath = join(mediaRoot, session.userId, video.storedName)
+  let fileSize
+  try { fileSize = (await stat(filePath)).size }
+  catch { throw new HttpError(404, 'Training video file is unavailable.') }
+
+  const rangeHeader = String(request.headers.range || '')
+  let start = 0
+  let end = fileSize - 1
+  let status = 200
+  if (rangeHeader) {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader)
+    if (!match) throw new HttpError(416, 'Invalid video range.')
+    if (!match[1] && match[2]) {
+      const suffixLength = Number(match[2])
+      start = Math.max(0, fileSize - suffixLength)
+    } else {
+      start = Number(match[1] || 0)
+      end = match[2] ? Number(match[2]) : end
+    }
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || start >= fileSize) throw new HttpError(416, 'Invalid video range.')
+    end = Math.min(end, fileSize - 1)
+    status = 206
+  }
+
+  response.writeHead(status, {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'Content-Type, Accept, Authorization, Range',
+    'Access-Control-Expose-Headers': 'Accept-Ranges, Content-Length, Content-Range',
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': 'private, max-age=3600',
+    'Content-Type': video.mimeType,
+    'Content-Length': String(end - start + 1),
+    ...(status === 206 ? { 'Content-Range': `bytes ${start}-${end}/${fileSize}` } : {}),
+    'X-Content-Type-Options': 'nosniff',
+  })
+  createReadStream(filePath, { start, end }).on('error', () => response.destroy()).pipe(response)
 }
 
 function json(response, status, body) {
@@ -213,29 +333,46 @@ function resetWithOfflineCode(body) {
 const server = createServer(async (request, response) => {
   try {
     if (request.method === 'OPTIONS') return json(response, 204, {})
-    if (request.method === 'GET' && request.url === '/health') return json(response, 200, { ok: true, database: 'sqlite', emailConfigured: Boolean(resendApiKey && fromEmail) })
+    const url = new URL(request.url || '/', 'http://localhost')
+    if (request.method === 'GET' && url.pathname === '/health') return json(response, 200, { ok: true, database: 'sqlite', emailConfigured: Boolean(resendApiKey && fromEmail), privateMedia: true })
+    const contentMatch = /^\/v1\/training\/videos\/([a-f0-9-]+)\/content$/.exec(url.pathname)
+    if (request.method === 'GET' && contentMatch) return await streamTrainingVideo(request, response, requireSession(request), contentMatch[1])
     enforceIpLimit(request)
-    if (request.method === 'GET' && request.url === '/v1/me') {
+    if (request.method === 'GET' && url.pathname === '/v1/me') {
       const session = requireSession(request)
       return json(response, 200, { account: publicAccount(session.userId), state: getState(session.userId) })
     }
-    if (request.method === 'GET' && request.url === '/v1/state') {
+    if (request.method === 'GET' && url.pathname === '/v1/state') {
       const session = requireSession(request)
       return json(response, 200, getState(session.userId))
     }
+    if (request.method === 'GET' && url.pathname === '/v1/training/videos') {
+      const session = requireSession(request)
+      return json(response, 200, { videos: listTrainingVideos(session.userId) })
+    }
+    if (request.method === 'POST' && url.pathname === '/v1/training/videos') {
+      const session = requireSession(request)
+      return json(response, 201, { video: await uploadTrainingVideo(request, session, url) })
+    }
+    const deleteMatch = /^\/v1\/training\/videos\/([a-f0-9-]+)$/.exec(url.pathname)
+    if (request.method === 'DELETE' && deleteMatch) {
+      const session = requireSession(request)
+      await removeTrainingVideo(session, deleteMatch[1])
+      return json(response, 200, { deleted: true })
+    }
     const body = await readJson(request)
-    if (request.method === 'POST' && request.url === '/v1/auth/register') return json(response, 201, await registerUser(body))
-    if (request.method === 'POST' && request.url === '/v1/auth/login') return json(response, 200, loginUser(body))
-    if (request.method === 'POST' && request.url === '/v1/auth/logout') { const session = requireSession(request); revokeSession(session.token); return json(response, 200, { signedOut: true }) }
-    if (request.method === 'POST' && request.url === '/v1/recovery/request') return json(response, 202, await requestRecovery(body))
-    if (request.method === 'POST' && request.url === '/v1/recovery/reset') return json(response, 200, resetWithEmail(body))
-    if (request.method === 'POST' && request.url === '/v1/recovery/offline') return json(response, 200, resetWithOfflineCode(body))
-    if (request.method === 'PATCH' && request.url === '/v1/state') {
+    if (request.method === 'POST' && url.pathname === '/v1/auth/register') return json(response, 201, await registerUser(body))
+    if (request.method === 'POST' && url.pathname === '/v1/auth/login') return json(response, 200, loginUser(body))
+    if (request.method === 'POST' && url.pathname === '/v1/auth/logout') { const session = requireSession(request); revokeSession(session.token); return json(response, 200, { signedOut: true }) }
+    if (request.method === 'POST' && url.pathname === '/v1/recovery/request') return json(response, 202, await requestRecovery(body))
+    if (request.method === 'POST' && url.pathname === '/v1/recovery/reset') return json(response, 200, resetWithEmail(body))
+    if (request.method === 'POST' && url.pathname === '/v1/recovery/offline') return json(response, 200, resetWithOfflineCode(body))
+    if (request.method === 'PATCH' && url.pathname === '/v1/state') {
       const session = requireSession(request)
       if (!body.state || typeof body.state !== 'object' || Array.isArray(body.state)) throw new HttpError(400, 'State must be an object.')
       return json(response, 200, mergeState(session.userId, body.state))
     }
-    if (request.method === 'PATCH' && request.url === '/v1/account') {
+    if (request.method === 'PATCH' && url.pathname === '/v1/account') {
       const session = requireSession(request)
       return json(response, 200, { account: updateUser(session.userId, body) })
     }

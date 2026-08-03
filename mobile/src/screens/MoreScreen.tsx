@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera'
+import * as DocumentPicker from 'expo-document-picker'
 import * as Haptics from 'expo-haptics'
+import { useVideoPlayer, VideoView, type VideoSource } from 'expo-video'
+import { aliTrainingDays, isAliSaadeAccount, type TrainingDayDefinition } from '../aliTraining'
 import type { AppTheme } from '../theme'
 import { palette } from '../theme'
 import type { AppData, FoodProduct, Language, MoreSection, SportPreference, ThemeMode, UserAccount } from '../types'
@@ -10,6 +13,7 @@ import { Card, EmptyState, FormField, PrimaryButton, ScreenScroll, SecondaryButt
 import { completedHabitCount } from '../utils/nutrition'
 import { tr } from '../i18n'
 import { addRecoveryEmail } from '../services/auth'
+import { cloudTrainingVideoSource, deleteCloudTrainingVideo, listCloudTrainingVideos, uploadCloudTrainingVideo, type CloudTrainingVideo } from '../services/cloud'
 import { lookupProductBarcode, searchProductsLive } from '../services/products'
 
 const sections: Array<{ id: MoreSection; glyph: string; en: string; ar: string }> = [
@@ -34,7 +38,7 @@ export function MoreScreen({ account, data, theme, onChangeAccount, onChangeData
       <SectionHeader eyebrow={tr(data.language, 'MORE TOOLS', 'أدوات إضافية')} title={tr(data.language, 'Your wellness hub', 'مركز صحتك')} caption={tr(data.language, 'Habits, workouts, food scan, and app preferences.', 'العادات والتمرين ومسح الطعام وإعدادات التطبيق.')} theme={theme} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionTabs}>{sections.map((item) => <Pressable key={item.id} onPress={() => setSection(item.id)} style={[styles.sectionTab, { backgroundColor: section === item.id ? theme.primary : theme.surface, borderColor: section === item.id ? theme.primary : theme.line }]}><Text style={[styles.sectionGlyph, { color: section === item.id ? '#fff' : theme.primary }]}>{item.glyph}</Text><Text style={[styles.sectionLabel, { color: section === item.id ? '#fff' : theme.text }]}>{data.language === 'ar' ? item.ar : item.en}</Text></Pressable>)}</ScrollView>
       {section === 'habits' ? <HabitsPanel data={data} theme={theme} onChangeData={onChangeData} /> : null}
-      {section === 'workouts' ? <WorkoutsPanel data={data} theme={theme} onChangeData={onChangeData} /> : null}
+      {section === 'workouts' ? <WorkoutsPanel account={account} data={data} theme={theme} onChangeData={onChangeData} /> : null}
       {section === 'scanner' ? <ScannerPanel data={data} theme={theme} onChangeData={onChangeData} /> : null}
       {section === 'settings' ? <SettingsPanel account={account} data={data} theme={theme} onChangeAccount={onChangeAccount} onChangeData={onChangeData} onReplacePlan={onReplacePlan} onLogout={onLogout} /> : null}
     </ScreenScroll>
@@ -52,7 +56,99 @@ function HabitsPanel({ data, theme, onChangeData }: { data: AppData; theme: AppT
   return <View style={styles.panel}><SectionHeader eyebrow={tr(data.language, 'DAILY CHECK-IN', 'المتابعة اليومية')} title={tr(data.language, `${completed} of 6 complete`, `${completed} من ٦ مكتملة`)} caption={tr(data.language, 'Complete all six to extend your adherence streak.', 'أكمل الستة لزيادة سلسلة الالتزام.')} theme={theme} /><Card theme={theme} style={styles.habitProgress}><View style={[styles.habitRing, { borderColor: completed === 6 ? theme.primary : theme.line }]}><Text style={[styles.habitRingValue, { color: theme.text }]}>{completed}</Text><Text style={[styles.habitRingUnit, { color: theme.muted }]}>/ 6</Text></View><View style={styles.flex}><Text style={[styles.habitProgressTitle, { color: theme.text }]}>{completed === 6 ? tr(data.language, 'Perfect day!', 'يوم مثالي!') : tr(data.language, 'Keep the rhythm going', 'استمر على هذا الإيقاع')}</Text><Text style={[styles.habitProgressBody, { color: theme.muted }]}>{tr(data.language, 'Each check-in keeps your plan visible and intentional.', 'كل متابعة تبقي خطتك واضحة ومقصودة.')}</Text></View></Card><View style={styles.habitList}>{habitTasks.map((task) => { const checked = Boolean(data.habits[today]?.[task.id]); return <Pressable key={task.id} onPress={() => toggle(task.id)}><Card theme={theme} style={[styles.habitItem, checked && { borderColor: theme.primary, backgroundColor: theme.primarySoft }]}><Text style={styles.habitGlyph}>{task.glyph}</Text><Text style={[styles.habitText, { color: theme.text }]}>{data.language === 'ar' ? task.label : task.labelEn}</Text><View style={[styles.check, { backgroundColor: checked ? theme.primary : theme.surfaceAlt, borderColor: checked ? theme.primary : theme.line }]}><Text style={styles.checkText}>{checked ? '✓' : ''}</Text></View></Card></Pressable> })}</View></View>
 }
 
-function WorkoutsPanel({ data, theme, onChangeData }: { data: AppData; theme: AppTheme; onChangeData: (next: AppData) => void }) {
+function AliWorkoutsPanel({ data, theme }: { data: AppData; theme: AppTheme }) {
+  const [videos, setVideos] = useState<CloudTrainingVideo[]>([])
+  const [activeId, setActiveId] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [playerLoading, setPlayerLoading] = useState(false)
+  const [uploadingDay, setUploadingDay] = useState('')
+  const [deletingId, setDeletingId] = useState('')
+  const [error, setError] = useState('')
+  const selectedVideo = videos.find((video) => video.id === activeId) ?? videos[0]
+  const selectedDay = aliTrainingDays.find((day) => day.id === selectedVideo?.sessionId)
+  const player = useVideoPlayer(null)
+
+  async function refreshVideos(preferredId?: string) {
+    setLoading(true)
+    setError('')
+    try {
+      const result = await listCloudTrainingVideos()
+      setVideos(result.videos)
+      setActiveId((current) => preferredId || (result.videos.some((video) => video.id === current) ? current : result.videos[0]?.id || ''))
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not load training videos.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { void refreshVideos() }, [])
+  useEffect(() => {
+    let active = true
+    if (!selectedVideo) { player.pause(); void player.replaceAsync(null); return }
+    setPlayerLoading(true)
+    void cloudTrainingVideoSource(selectedVideo.id, selectedVideo.title).then(async (source: VideoSource) => {
+      if (!active) return
+      player.pause()
+      await player.replaceAsync(source)
+    }).catch((caught) => {
+      if (active) setError(caught instanceof Error ? caught.message : 'Could not load this training video.')
+    }).finally(() => { if (active) setPlayerLoading(false) })
+    return () => { active = false }
+  }, [player, selectedVideo?.id])
+
+  async function pickVideos(day: TrainingDayDefinition) {
+    const result = await DocumentPicker.getDocumentAsync({ type: ['video/mp4', 'video/quicktime', 'video/webm'], multiple: true, copyToCacheDirectory: true })
+    if (result.canceled) return
+    setUploadingDay(day.id)
+    setError('')
+    let lastUploadedId = ''
+    try {
+      for (const asset of result.assets) {
+        const title = asset.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim() || `${day.title} exercise`
+        lastUploadedId = (await uploadCloudTrainingVideo(day.id, title, asset)).id
+      }
+      await refreshVideos(lastUploadedId)
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not upload this video.')
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+    } finally {
+      setUploadingDay('')
+    }
+  }
+
+  function confirmDelete(video: CloudTrainingVideo) {
+    Alert.alert(tr(data.language, 'Delete video?', 'حذف الفيديو؟'), tr(data.language, `“${video.title}” will be permanently removed from every device.`, `سيتم حذف “${video.title}” نهائياً من جميع الأجهزة.`), [
+      { text: tr(data.language, 'Cancel', 'إلغاء'), style: 'cancel' },
+      { text: tr(data.language, 'Delete', 'حذف'), style: 'destructive', onPress: async () => {
+        setDeletingId(video.id)
+        setError('')
+        try { await deleteCloudTrainingVideo(video.id); await refreshVideos(); await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success) }
+        catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not delete this video.') }
+        finally { setDeletingId('') }
+      } },
+    ])
+  }
+
+  return (
+    <View style={styles.panel}>
+      <SectionHeader eyebrow={tr(data.language, 'PRIVATE CLOUD LIBRARY', 'مكتبة سحابية خاصة')} title={tr(data.language, 'Ali’s training sessions', 'جلسات علي التدريبية')} caption={tr(data.language, 'Upload or delete videos for each day. Changes appear on every device signed into your account.', 'ارفع أو احذف فيديوهات كل يوم. تظهر التغييرات على كل جهاز مسجل بحسابك.')} theme={theme} />
+      <Card theme={theme} style={styles.personalVideoCard}>
+        {selectedVideo ? <><View style={styles.personalVideoHeading}><View style={styles.flex}><Text style={[styles.personalVideoDay, { color: theme.primary }]}>{selectedDay ? (data.language === 'ar' ? selectedDay.titleAr : selectedDay.title) : ''}</Text><Text style={[styles.personalVideoTitle, { color: theme.text }]}>{selectedVideo.title}</Text></View><View style={[styles.assignedBadge, { backgroundColor: theme.primarySoft }]}><Text style={[styles.assignedBadgeText, { color: theme.primary }]}>{tr(data.language, 'SYNCED', 'متزامن')}</Text></View></View><VideoView player={player} style={styles.personalVideo} nativeControls contentFit="contain" fullscreenOptions={{ enable: true }} />{playerLoading ? <View style={styles.personalPlayerLoading}><ActivityIndicator color="#fff" /><Text style={styles.personalPlayerLoadingText}>{tr(data.language, 'Loading private video…', 'جارٍ تحميل الفيديو الخاص…')}</Text></View> : null}</> : <View style={[styles.personalEmptyPlayer, { backgroundColor: theme.surfaceAlt }]}><Text style={styles.personalEmptyGlyph}>↥</Text><Text style={[styles.personalEmptyTitle, { color: theme.text }]}>{loading ? tr(data.language, 'Loading your library…', 'جارٍ تحميل المكتبة…') : tr(data.language, 'Upload your first video', 'ارفع أول فيديو')}</Text><Text style={[styles.personalEmptyBody, { color: theme.muted }]}>{tr(data.language, 'MP4, MOV, or WebM · up to 100 MB', 'MP4 أو MOV أو WebM · حتى ١٠٠ ميغابايت')}</Text></View>}
+      </Card>
+      {error ? <Card theme={theme} style={styles.personalErrorCard}><Text style={styles.personalErrorText}>{error}</Text></Card> : null}
+      <View style={styles.personalSessionList}>
+        {aliTrainingDays.map((day) => { const dayVideos = videos.filter((video) => video.sessionId === day.id); return <Card key={day.id} theme={theme} style={styles.personalSessionCard}><View style={styles.personalSessionHeading}><View style={[styles.personalSessionNumber, { backgroundColor: theme.primarySoft }]}><Text style={[styles.personalSessionNumberText, { color: theme.primary }]}>{day.id === 'abs' ? '◎' : day.title.replace('Day ', '')}</Text></View><View style={styles.flex}><Text style={[styles.personalSessionDay, { color: theme.muted }]}>{data.language === 'ar' ? day.titleAr : day.title}</Text><Text style={[styles.personalSessionFocus, { color: theme.text }]}>{data.language === 'ar' ? day.focusAr : day.focus}</Text></View><Text style={[styles.personalSessionCount, { color: theme.muted }]}>{dayVideos.length} {tr(data.language, 'videos', 'فيديو')}</Text></View><View style={styles.personalExerciseList}>{dayVideos.map((video, index) => { const selected = video.id === selectedVideo?.id; return <View key={video.id} style={[styles.personalExercise, { backgroundColor: selected ? theme.primarySoft : theme.surfaceAlt, borderColor: selected ? theme.primary : theme.line }]}><Pressable onPress={() => { setActiveId(video.id); void Haptics.selectionAsync() }} style={styles.personalExerciseMain}><View style={[styles.personalExerciseNumber, { backgroundColor: theme.surface }]}><Text style={[styles.personalExerciseNumberText, { color: selected ? theme.primary : theme.muted }]}>{index + 1}</Text></View><Text numberOfLines={1} style={[styles.personalExerciseTitle, { color: selected ? theme.primary : theme.text }]}>{video.title}</Text><Text style={[styles.personalExercisePlay, { color: theme.primary }]}>▶</Text></Pressable><Pressable onPress={() => confirmDelete(video)} disabled={deletingId === video.id} style={[styles.personalDeleteButton, { borderLeftColor: theme.line }]}>{deletingId === video.id ? <ActivityIndicator size="small" color="#bf4f4f" /> : <Text style={styles.personalDeleteText}>×</Text>}</Pressable></View> })}{!dayVideos.length ? <Text style={[styles.personalEmptyDay, { color: theme.muted, backgroundColor: theme.surfaceAlt }]}>{tr(data.language, 'No videos added yet.', 'لم تتم إضافة فيديوهات بعد.')}</Text> : null}</View><Pressable onPress={() => void pickVideos(day)} disabled={Boolean(uploadingDay)} style={[styles.personalUploadButton, { borderColor: theme.primary, backgroundColor: theme.primarySoft }]}>{uploadingDay === day.id ? <ActivityIndicator size="small" color={theme.primary} /> : <Text style={[styles.personalUploadGlyph, { color: theme.primary }]}>＋</Text>}<Text style={[styles.personalUploadText, { color: theme.primary }]}>{uploadingDay === day.id ? tr(data.language, 'Uploading…', 'جارٍ الرفع…') : tr(data.language, 'Add videos', 'إضافة فيديوهات')}</Text></Pressable></Card> })}
+      </View>
+      <Card theme={theme} style={styles.workoutNote}><Text style={styles.workoutNoteGlyph}>💡</Text><Text style={[styles.workoutNoteText, { color: theme.muted }]}>{tr(data.language, 'Use the loads and repetitions prescribed by your coach. Stop if you feel pain or dizziness.', 'استخدم الأوزان والتكرارات التي حددها مدربك، وتوقف عند الألم أو الدوار.')}</Text></Card>
+    </View>
+  )
+}
+
+function WorkoutsPanel({ account, data, theme, onChangeData }: { account: UserAccount; data: AppData; theme: AppTheme; onChangeData: (next: AppData) => void }) {
+  if (isAliSaadeAccount(account.username)) return <AliWorkoutsPanel data={data} theme={theme} />
+
   const plan = workoutPlans[data.sport]
   return <View style={styles.panel}><SectionHeader eyebrow={tr(data.language, 'MOVEMENT PLAN', 'خطة الحركة')} title={tr(data.language, 'Choose your activity', 'اختر نشاطك')} caption={tr(data.language, 'A practical weekly schedule matched to your preference.', 'جدول أسبوعي عملي يناسب تفضيلك.')} theme={theme} /><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sportRow}>{sportOptions.map((sport) => <Pressable key={sport.id} onPress={() => onChangeData({ ...data, sport: sport.id })} style={[styles.sportChip, { backgroundColor: data.sport === sport.id ? theme.primary : theme.surface, borderColor: data.sport === sport.id ? theme.primary : theme.line }]}><Text style={styles.sportGlyph}>{sport.glyph}</Text><Text style={[styles.sportLabel, { color: data.sport === sport.id ? '#fff' : theme.text }]}>{data.language === 'ar' ? sport.label : sport.labelEn}</Text></Pressable>)}</ScrollView><View style={styles.workoutList}>{plan.map((workout, index) => <Card key={`${workout.day}-${index}`} theme={theme} style={styles.workoutCard}><View style={[styles.workoutIndex, { backgroundColor: theme.primarySoft }]}><Text style={[styles.workoutIndexText, { color: theme.primary }]}>{index + 1}</Text></View><View style={styles.flex}><Text style={[styles.workoutDay, { color: theme.primary }]}>{workout.day}</Text><Text style={[styles.workoutTitle, { color: theme.text }]}>{workout.title}</Text><Text style={[styles.workoutDetail, { color: theme.muted }]}>{workout.detail}</Text></View><Text style={[styles.workoutArrow, { color: theme.muted }]}>›</Text></Card>)}</View><Card theme={theme} style={styles.workoutNote}><Text style={styles.workoutNoteGlyph}>💡</Text><Text style={[styles.workoutNoteText, { color: theme.muted }]}>{tr(data.language, 'Leave at least two hours between a full meal and training. Adjust intensity if you feel pain or dizziness.', 'اترك ساعتين على الأقل بين الوجبة الكاملة والتمرين، وخفف الشدة عند الألم أو الدوار.')}</Text></Card></View>
 }
@@ -210,6 +306,42 @@ const styles = StyleSheet.create({
   workoutNote: { flexDirection: 'row', gap: 11, backgroundColor: '#fff8e8', borderColor: '#f0deb7' },
   workoutNoteGlyph: { fontSize: 22 },
   workoutNoteText: { flex: 1, fontSize: 11, lineHeight: 17 },
+  personalVideoCard: { position: 'relative', padding: 12, gap: 12 },
+  personalVideoHeading: { paddingHorizontal: 3, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  personalVideoDay: { fontSize: 11, fontWeight: '900' },
+  personalVideoTitle: { marginTop: 2, fontSize: 16, fontWeight: '900' },
+  assignedBadge: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 999 },
+  assignedBadgeText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+  personalVideo: { width: '100%', height: 470, borderRadius: 16, backgroundColor: '#0d1512' },
+  personalPlayerLoading: { position: 'absolute', left: 24, right: 24, bottom: 24, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, backgroundColor: 'rgba(8,18,15,.78)' },
+  personalPlayerLoadingText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  personalEmptyPlayer: { minHeight: 230, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 7, padding: 20 },
+  personalEmptyGlyph: { color: palette.green700, fontSize: 36, fontWeight: '500' },
+  personalEmptyTitle: { fontSize: 15, fontWeight: '900', textAlign: 'center' },
+  personalEmptyBody: { fontSize: 10, textAlign: 'center' },
+  personalErrorCard: { paddingVertical: 12, borderColor: '#e5b9b6', backgroundColor: '#fff3f2' },
+  personalErrorText: { color: '#a64e48', fontSize: 10, lineHeight: 16, fontWeight: '700' },
+  personalSessionList: { gap: 11 },
+  personalSessionCard: { padding: 14, gap: 12 },
+  personalSessionHeading: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  personalSessionNumber: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  personalSessionNumberText: { fontSize: 16, fontWeight: '900' },
+  personalSessionDay: { fontSize: 11, fontWeight: '800' },
+  personalSessionFocus: { marginTop: 2, fontSize: 14, fontWeight: '900' },
+  personalSessionCount: { fontSize: 10, fontWeight: '700' },
+  personalExerciseList: { gap: 7 },
+  personalExercise: { minHeight: 48, flexDirection: 'row', alignItems: 'stretch', overflow: 'hidden', borderWidth: 1, borderRadius: 13 },
+  personalExerciseMain: { minWidth: 0, flex: 1, paddingHorizontal: 9, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  personalExerciseNumber: { width: 29, height: 29, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  personalExerciseNumberText: { fontSize: 11, fontWeight: '900' },
+  personalExerciseTitle: { flex: 1, fontSize: 12, fontWeight: '800' },
+  personalExercisePlay: { fontSize: 13 },
+  personalDeleteButton: { width: 44, borderLeftWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  personalDeleteText: { color: '#bf4f4f', fontSize: 25, lineHeight: 27, fontWeight: '500' },
+  personalEmptyDay: { padding: 12, borderRadius: 12, fontSize: 10, textAlign: 'center' },
+  personalUploadButton: { minHeight: 44, borderWidth: 1, borderStyle: 'dashed', borderRadius: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  personalUploadGlyph: { fontSize: 20, fontWeight: '700' },
+  personalUploadText: { fontSize: 11, fontWeight: '900' },
   scannerHero: { minHeight: 170, borderRadius: 25, padding: 22, alignItems: 'center', justifyContent: 'center', gap: 6 },
   scannerGlyph: { color: '#fff', fontSize: 42, fontWeight: '300' },
   scannerTitle: { color: '#fff', fontSize: 17, fontWeight: '900' },

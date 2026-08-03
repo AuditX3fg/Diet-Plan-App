@@ -147,4 +147,38 @@ export function recordEmailEvent(userId, kind) {
   db.prepare('INSERT INTO email_events (user_id, kind, created_at) VALUES (?, ?, ?)').run(userId, kind, nowIso())
 }
 
+function trainingVideoFromRow(row) {
+  return row ? {
+    id: row.id,
+    sessionId: row.session_id,
+    title: row.title,
+    originalName: row.original_name,
+    mimeType: row.mime_type,
+    sizeBytes: row.size_bytes,
+    createdAt: row.created_at,
+  } : null
+}
+
+export function listTrainingVideos(userId) {
+  return db.prepare('SELECT * FROM training_videos WHERE user_id = ? ORDER BY created_at, id').all(userId).map(trainingVideoFromRow)
+}
+
+export function trainingVideoFile(userId, videoId) {
+  const row = db.prepare('SELECT * FROM training_videos WHERE id = ? AND user_id = ?').get(videoId, userId)
+  return row ? { ...trainingVideoFromRow(row), storedName: row.stored_name } : null
+}
+
+export function createTrainingVideo({ id, userId, sessionId, title, originalName, storedName, mimeType, sizeBytes }) {
+  const createdAt = nowIso()
+  db.prepare('INSERT INTO training_videos (id, user_id, session_id, title, original_name, stored_name, mime_type, size_bytes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, userId, sessionId, title, originalName, storedName, mimeType, sizeBytes, createdAt)
+  return trainingVideoFile(userId, id)
+}
+
+export function deleteTrainingVideo(userId, videoId) {
+  const video = trainingVideoFile(userId, videoId)
+  if (!video) return null
+  db.prepare('DELETE FROM training_videos WHERE id = ? AND user_id = ?').run(videoId, userId)
+  return video
+}
+
 export function normalizeRecovery(value) { return String(value || '').trim().replace(/[\s-]/g, '').toUpperCase() }

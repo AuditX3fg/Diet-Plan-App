@@ -17,6 +17,16 @@ export interface CloudState {
   updatedAt: string
 }
 
+export interface CloudTrainingVideo {
+  id: string
+  sessionId: 'day-1' | 'day-2' | 'day-3' | 'day-4' | 'abs'
+  title: string
+  originalName: string
+  mimeType: string
+  sizeBytes: number
+  createdAt: string
+}
+
 function token() { return window.localStorage.getItem(tokenKey) || '' }
 
 async function request<T>(path: string, options: RequestInit = {}) {
@@ -75,6 +85,40 @@ export async function saveCloudState(state: Record<string, unknown>) {
 export async function updateCloudAccount(displayName: string) {
   if (!baseUrl || !token()) return null
   return request<{ account: UserAccount }>('/v1/account', { method: 'PATCH', body: JSON.stringify({ displayName }) })
+}
+
+export async function listCloudTrainingVideos() {
+  if (!baseUrl || !token()) throw new Error('Sign in to your cloud account to load training videos.')
+  return request<{ videos: CloudTrainingVideo[] }>('/v1/training/videos')
+}
+
+export async function uploadCloudTrainingVideo(sessionId: CloudTrainingVideo['sessionId'], title: string, file: File) {
+  if (!baseUrl || !token()) throw new Error('Sign in to your cloud account before uploading videos.')
+  const parameters = new URLSearchParams({ sessionId, title, originalName: file.name })
+  const headers = new Headers({ Accept: 'application/json', 'Content-Type': file.type || 'video/mp4', Authorization: `Bearer ${token()}` })
+  let response: Response
+  try { response = await fetch(`${baseUrl}/v1/training/videos?${parameters}`, { method: 'POST', headers, body: file }) }
+  catch { throw new Error('Could not upload this video. Check your connection and try again.') }
+  const payload = await response.json().catch(() => ({})) as { video?: CloudTrainingVideo; error?: string }
+  if (!response.ok || !payload.video) throw new Error(payload.error || 'The training video could not be uploaded.')
+  return payload.video
+}
+
+export async function deleteCloudTrainingVideo(videoId: string) {
+  return request<{ deleted: boolean }>(`/v1/training/videos/${encodeURIComponent(videoId)}`, { method: 'DELETE' })
+}
+
+export async function createCloudTrainingVideoUrl(videoId: string, signal?: AbortSignal) {
+  if (!baseUrl || !token()) throw new Error('Sign in to play this training video.')
+  const headers = new Headers({ Authorization: `Bearer ${token()}` })
+  let response: Response
+  try { response = await fetch(`${baseUrl}/v1/training/videos/${encodeURIComponent(videoId)}/content`, { headers, signal }) }
+  catch { throw new Error('Could not load this training video.') }
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({})) as { error?: string }
+    throw new Error(payload.error || 'Could not load this training video.')
+  }
+  return URL.createObjectURL(await response.blob())
 }
 
 export async function cloudLogout() {

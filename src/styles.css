@@ -463,6 +463,38 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(31, 107, 87,
 .workout-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }.workout-day { padding: 17px; }.workout-day.rest { background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface)); }
 .workout-day-head { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 9px; }.workout-day-head > span { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 11px; background: var(--surface-soft); font-size: 20px; }.workout-day-head > div { display: flex; flex-direction: column; }.workout-day-head small { color: var(--muted); font-size: 8px; }.workout-day-head b { font-size: 12px; }.workout-day-head em { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 8px; font-style: normal; }
 .workout-day ul { margin: 14px 0 0; padding: 0; display: grid; gap: 6px; list-style: none; }.workout-day li { min-height: 34px; padding: 0 9px; display: flex; align-items: center; justify-content: space-between; border-radius: 8px; background: var(--surface-soft); color: var(--muted); font-size: 9px; }.workout-day li span { display: flex; align-items: center; gap: 5px; }.workout-day li svg { color: var(--accent); }.workout-day li a { color: var(--accent); }.rest-copy { margin: 14px 0 0; color: var(--muted); font-size: 9px; line-height: 1.6; }.workout-note { margin-top: 15px; }
+.ali-training-intro { padding: 4px 0; }
+.personal-plan-badge { min-width: 220px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line)); border-radius: 16px; color: var(--accent-dark); background: var(--accent-soft); }
+.personal-plan-badge > span { display: flex; flex-direction: column; gap: 2px; }
+.personal-plan-badge small { color: var(--muted); font-size: 12px; }
+.personal-plan-badge b { font-size: 15px; }
+.ali-video-player { margin: 24px 0 18px; padding: 18px; overflow: hidden; }
+.ali-video-heading { margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.ali-video-heading > span { display: flex; flex-direction: column; gap: 3px; }
+.ali-video-heading small { color: var(--accent); font-size: 12px; font-weight: 800; }
+.ali-video-heading b { font-size: 18px; }
+.ali-video-heading em { padding: 7px 10px; border-radius: 999px; color: var(--muted); background: var(--surface-soft); font-size: 12px; font-style: normal; font-weight: 700; }
+.ali-video-player video { width: 100%; height: min(66vh, 640px); display: block; border-radius: 14px; background: #0d1512; object-fit: contain; }
+.ali-player-state { min-height: 280px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 9px; border-radius: 14px; color: var(--muted); background: var(--surface-soft); text-align: center; }
+.ali-player-state b { color: var(--text); font-size: 15px; }.ali-player-state span { font-size: 11px; }
+.ali-training-error { margin: 0 0 16px; padding: 12px 14px; border: 1px solid color-mix(in srgb, #c45f58 28%, var(--line)); border-radius: 12px; color: #a64e48; background: color-mix(in srgb, #c45f58 9%, var(--surface)); font-size: 12px; font-weight: 700; }
+.ali-session-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.ali-session { padding: 17px; }
+.ali-session > header { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 11px; }
+.ali-session > header > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 13px; color: var(--accent); background: var(--accent-soft); font-size: 16px; font-weight: 800; }
+.ali-session > header > div { display: flex; flex-direction: column; gap: 2px; }
+.ali-session > header small { color: var(--muted); font-size: 12px; font-weight: 700; }
+.ali-session > header b { font-size: 15px; }
+.ali-session > header em { color: var(--muted); font-size: 12px; font-style: normal; }
+.ali-exercise-list { margin-top: 14px; display: grid; gap: 7px; }
+.ali-exercise-row { display: grid; grid-template-columns: minmax(0, 1fr) 42px; overflow: hidden; border: 1px solid transparent; border-radius: 11px; background: var(--surface-soft); }
+.ali-exercise-row:hover { border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); }.ali-exercise-row.active { border-color: color-mix(in srgb, var(--accent) 36%, var(--line)); background: var(--accent-soft); }
+.ali-exercise-row > button:first-child { min-width: 0; min-height: 46px; padding: 7px 10px; display: grid; grid-template-columns: 28px minmax(0, 1fr) 20px; align-items: center; gap: 9px; border: 0; color: var(--text); background: transparent; text-align: start; cursor: pointer; }
+.ali-exercise-row > button:first-child > span { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 8px; color: var(--muted); background: var(--surface); font-size: 12px; font-weight: 800; }
+.ali-exercise-row b { overflow: hidden; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }.ali-exercise-row svg { color: var(--accent); }
+.ali-delete-video { width: 42px; display: grid; place-items: center; border: 0; border-inline-start: 1px solid var(--line); color: #bd5a54; background: transparent; cursor: pointer; }.ali-delete-video:hover { background: color-mix(in srgb, #c45f58 10%, transparent); }.ali-delete-video:disabled { opacity: .55; cursor: wait; }
+.ali-empty-day { margin: 0; padding: 13px; border-radius: 11px; color: var(--muted); background: var(--surface-soft); font-size: 11px; text-align: center; }
+.ali-upload-button { min-height: 43px; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 11px; color: var(--accent); background: var(--accent-soft); font-size: 12px; font-weight: 800; cursor: pointer; }.ali-upload-button input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }.ali-upload-button.busy { opacity: .62; cursor: wait; }
 
 /* Scanner */
 .feature-switch { min-height: 42px; padding-inline: 15px; }.scanner-layout { margin-top: 24px; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, .7fr); gap: 18px; align-items: start; }.scan-tools, .scan-result, .shopping-panel { padding: 23px; }
@@ -694,6 +726,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(31, 107, 87,
   .camera-zone .primary-btn { grid-column: 1 / -1; }
   .scan-history > div:last-child { grid-template-columns: 1fr 1fr; }
   .settings-grid { grid-template-columns: 1fr; }
+  .ali-session-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 560px) {
@@ -753,6 +786,12 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(31, 107, 87,
   .sport-picker { overflow-x: auto; display: flex; }
   .sport-picker button { min-width: 82px; }
   .workout-grid { grid-template-columns: 1fr; }
+  .ali-video-player { padding: 12px; }
+  .ali-video-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .ali-video-player video { height: 58vh; min-height: 360px; }
+  .ali-session { padding: 14px; }
+  .ali-session > header { grid-template-columns: 42px minmax(0, 1fr); }
+  .ali-session > header em { grid-column: 2; }
   .search-form { grid-template-columns: 1fr; }
   .search-form button { min-height: 40px; }
   .scan-tools, .scan-result, .shopping-panel { padding: 18px 14px; }

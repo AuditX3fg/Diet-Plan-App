@@ -1,10 +1,14 @@
-import { Dumbbell, ExternalLink, HeartPulse, Sparkles, Timer, TrendingUp } from 'lucide-react'
+import { useEffect, useState, type ChangeEvent } from 'react'
+import { Cloud, Dumbbell, ExternalLink, HeartPulse, LoaderCircle, PlayCircle, ShieldCheck, Sparkles, Timer, Trash2, TrendingUp, Upload } from 'lucide-react'
+import { aliTrainingDays, isAliSaadeAccount, type TrainingDayDefinition } from '../aliTraining'
 import { sportOptions } from '../data'
 import { tr } from '../i18n'
+import { createCloudTrainingVideoUrl, deleteCloudTrainingVideo, listCloudTrainingVideos, uploadCloudTrainingVideo, type CloudTrainingVideo } from '../services/cloud'
 import type { SportPreference, UserProfile } from '../types'
 import { calculateHealthMetrics, toArabicNumber } from '../utils'
 
 interface WorkoutsPageProps {
+  username: string
   profile: UserProfile
   preference: SportPreference
   onPreferenceChange: (preference: SportPreference) => void
@@ -32,7 +36,121 @@ const englishSportSessions: Record<SportPreference, string[][]> = {
   football: [['Skills and passing — 45 minutes'], ['Short sprints — 10 rounds'], ['Light play — 45 minutes'], ['Match or training — 60 minutes']],
 }
 
-export function WorkoutsPage({ profile, preference, onPreferenceChange }: WorkoutsPageProps) {
+function AliTrainingPlan() {
+  const [videos, setVideos] = useState<CloudTrainingVideo[]>([])
+  const [activeId, setActiveId] = useState('')
+  const [videoUrl, setVideoUrl] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [playerLoading, setPlayerLoading] = useState(false)
+  const [uploadingDay, setUploadingDay] = useState('')
+  const [deletingId, setDeletingId] = useState('')
+  const [error, setError] = useState('')
+  const selectedVideo = videos.find((video) => video.id === activeId) ?? videos[0]
+  const selectedDay = aliTrainingDays.find((day) => day.id === selectedVideo?.sessionId)
+
+  async function refreshVideos(preferredId?: string) {
+    setLoading(true)
+    setError('')
+    try {
+      const result = await listCloudTrainingVideos()
+      setVideos(result.videos)
+      setActiveId((current) => preferredId || (result.videos.some((video) => video.id === current) ? current : result.videos[0]?.id || ''))
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not load training videos.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { void refreshVideos() }, [])
+
+  useEffect(() => {
+    if (!selectedVideo) { setVideoUrl(''); return }
+    const controller = new AbortController()
+    let objectUrl = ''
+    setPlayerLoading(true)
+    setVideoUrl('')
+    void createCloudTrainingVideoUrl(selectedVideo.id, controller.signal).then((url) => {
+      objectUrl = url
+      setVideoUrl(url)
+    }).catch((caught) => {
+      if (!controller.signal.aborted) setError(caught instanceof Error ? caught.message : 'Could not load this video.')
+    }).finally(() => { if (!controller.signal.aborted) setPlayerLoading(false) })
+    return () => { controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl) }
+  }, [selectedVideo?.id])
+
+  async function uploadFiles(day: TrainingDayDefinition, event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files || [])
+    event.target.value = ''
+    if (!files.length) return
+    setUploadingDay(day.id)
+    setError('')
+    let lastUploadedId = ''
+    try {
+      for (const file of files) {
+        const title = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim() || `${day.title} exercise`
+        lastUploadedId = (await uploadCloudTrainingVideo(day.id, title, file)).id
+      }
+      await refreshVideos(lastUploadedId)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not upload this video.')
+    } finally {
+      setUploadingDay('')
+    }
+  }
+
+  async function removeVideo(video: CloudTrainingVideo) {
+    if (!window.confirm(tr(`حذف "${video.title}" نهائياً؟`, `Permanently delete “${video.title}”?`))) return
+    setDeletingId(video.id)
+    setError('')
+    try {
+      await deleteCloudTrainingVideo(video.id)
+      await refreshVideos()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not delete this video.')
+    } finally {
+      setDeletingId('')
+    }
+  }
+
+  return (
+    <div className="workouts-page ali-training-page">
+      <section className="feature-intro ali-training-intro">
+        <div><span className="status-pill"><ShieldCheck size={14} /> {tr('مكتبة خاصة', 'Private library')}</span><h2>{tr('جلسات علي التدريبية', 'Ali’s training sessions')}</h2><p>{tr('ارفع فيديوهات كل يوم أو احذفها. تتم مزامنة المكتبة مع حسابك على جميع أجهزتك.', 'Upload or delete videos for each day. Your library stays synchronized with your account on every device.')}</p></div>
+        <div className="personal-plan-badge"><Cloud size={20} /><span><small>{tr('محفوظ في الحساب', 'Saved to your account')}</small><b>{videos.length} {tr('فيديو', 'videos')}</b></span></div>
+      </section>
+
+      <section className="ali-video-player card-surface" aria-live="polite">
+        {selectedVideo ? <><div className="ali-video-heading"><span><small>{selectedDay ? tr(selectedDay.titleAr, selectedDay.title) : ''}</small><b>{selectedVideo.title}</b></span><em>{selectedDay ? tr(selectedDay.focusAr, selectedDay.focus) : ''}</em></div>{videoUrl ? <video key={videoUrl} controls playsInline preload="metadata" src={videoUrl}>{tr('متصفحك لا يدعم تشغيل الفيديو.', 'Your browser does not support video playback.')}</video> : <div className="ali-player-state"><LoaderCircle className={playerLoading ? 'spin' : ''} size={28} /><b>{playerLoading ? tr('جارٍ تحميل الفيديو الخاص…', 'Loading private video…') : tr('تعذر تشغيل الفيديو', 'Video unavailable')}</b></div>}</> : <div className="ali-player-state"><Upload size={30} /><b>{loading ? tr('جارٍ تحميل المكتبة…', 'Loading your library…') : tr('ارفع أول فيديو للبدء', 'Upload your first video to begin')}</b><span>{tr('MP4 أو MOV أو WebM — حتى ١٠٠ ميغابايت', 'MP4, MOV, or WebM — up to 100 MB')}</span></div>}
+      </section>
+
+      {error ? <div className="ali-training-error" role="alert">{error}</div> : null}
+
+      <section className="ali-session-grid">
+        {aliTrainingDays.map((day) => {
+          const dayVideos = videos.filter((video) => video.sessionId === day.id)
+          return <article key={day.id} className="ali-session card-surface">
+            <header><span>{day.id === 'abs' ? '◎' : day.title.replace('Day ', '')}</span><div><small>{tr(day.titleAr, day.title)}</small><b>{tr(day.focusAr, day.focus)}</b></div><em>{dayVideos.length} {tr('فيديو', 'videos')}</em></header>
+            <div className="ali-exercise-list">
+              {dayVideos.map((video, index) => {
+                const selected = selectedVideo?.id === video.id
+                return <div key={video.id} className={selected ? 'ali-exercise-row active' : 'ali-exercise-row'}><button onClick={() => setActiveId(video.id)} aria-current={selected ? 'true' : undefined}><span>{index + 1}</span><b>{video.title}</b><PlayCircle size={18} /></button><button className="ali-delete-video" onClick={() => void removeVideo(video)} disabled={deletingId === video.id} aria-label={`${tr('حذف', 'Delete')} ${video.title}`}>{deletingId === video.id ? <LoaderCircle className="spin" size={16} /> : <Trash2 size={16} />}</button></div>
+              })}
+              {!dayVideos.length ? <p className="ali-empty-day">{tr('لا توجد فيديوهات لهذا اليوم بعد.', 'No videos added to this day yet.')}</p> : null}
+            </div>
+            <label className={uploadingDay === day.id ? 'ali-upload-button busy' : 'ali-upload-button'}><input type="file" accept="video/mp4,video/quicktime,video/webm" multiple onChange={(event) => void uploadFiles(day, event)} disabled={Boolean(uploadingDay)} /><Upload size={16} />{uploadingDay === day.id ? tr('جارٍ الرفع…', 'Uploading…') : tr('إضافة فيديوهات', 'Add videos')}</label>
+          </article>
+        } )}
+      </section>
+
+      <div className="health-note workout-note"><HeartPulse size={20} /><p><b>{tr('تدرب بأمان', 'Train safely')}</b>{tr('استخدم الأوزان والتكرارات التي حددها مدربك، وتوقف عند الألم أو الدوار.', 'Use the loads and repetitions prescribed by your coach, and stop if you feel pain or dizziness.')}</p></div>
+    </div>
+  )
+}
+
+export function WorkoutsPage({ username, profile, preference, onPreferenceChange }: WorkoutsPageProps) {
+  if (isAliSaadeAccount(username)) return <AliTrainingPlan />
+
   const metrics = calculateHealthMetrics(profile)
   const sessions = sportSessions[preference]
   const days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']

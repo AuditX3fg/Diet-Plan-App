@@ -11,3 +11,4 @@ vite.config.d.ts
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+mobile/recovery-server/data/
