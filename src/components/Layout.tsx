@@ -1,20 +1,23 @@
 import { useState, type ReactNode } from 'react'
 import {
-  Activity,
-  Apple,
-  Barcode,
   Bell,
-  CalendarDays,
+  CalendarRange,
   ChartNoAxesColumnIncreasing,
   ChevronLeft,
-  Home,
+  ClipboardList,
+  Dumbbell,
+  HeartPulse,
+  House,
+  LayoutGrid,
   Leaf,
+  ListChecks,
   LogOut,
   Moon,
-  Settings,
+  ScanLine,
   Settings2,
+  SlidersHorizontal,
   Sun,
-  UserRound,
+  X,
 } from 'lucide-react'
 import type { Language, View } from '../types'
 
@@ -31,16 +34,19 @@ interface LayoutProps {
 }
 
 const navItems = [
-  { id: 'today' as const, icon: Home },
-  { id: 'plan' as const, icon: CalendarDays },
-  { id: 'week' as const, icon: Apple },
-  { id: 'habits' as const, icon: Activity },
-  { id: 'scanner' as const, icon: Barcode },
-  { id: 'workouts' as const, icon: ChartNoAxesColumnIncreasing },
+  { id: 'today' as const, icon: House },
+  { id: 'plan' as const, icon: ClipboardList },
+  { id: 'week' as const, icon: CalendarRange },
+  { id: 'habits' as const, icon: ListChecks },
+  { id: 'scanner' as const, icon: ScanLine },
+  { id: 'workouts' as const, icon: Dumbbell },
   { id: 'progress' as const, icon: ChartNoAxesColumnIncreasing },
-  { id: 'profile' as const, icon: UserRound },
-  { id: 'settings' as const, icon: Settings },
+  { id: 'profile' as const, icon: HeartPulse },
+  { id: 'settings' as const, icon: SlidersHorizontal },
 ]
+
+const mobilePrimaryItems = navItems.filter(({ id }) => ['today', 'plan', 'week', 'progress'].includes(id))
+const mobileMoreItems = navItems.filter(({ id }) => ['habits', 'scanner', 'workouts', 'profile', 'settings'].includes(id))
 
 const labels: Record<Language, Record<View, string>> = {
   ar: { today: 'الرئيسية', plan: 'خطتي', week: 'الأسبوع', habits: 'متابعة', scanner: 'مسح', workouts: 'تمرين', progress: 'التقدم', profile: 'الكتلة', settings: 'الإعدادات' },
@@ -50,7 +56,17 @@ const labels: Record<Language, Record<View, string>> = {
 
 export function Layout({ children, view, onViewChange, darkMode, onToggleTheme, userName, currentDate, language, onLogout }: LayoutProps) {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const languageLabels = labels[language]
+  const moreLabel = language === 'ar' ? 'المزيد' : language === 'fr' ? 'Plus' : 'More'
+  const exploreLabel = language === 'ar' ? 'المزيد من الأدوات' : language === 'fr' ? 'Plus d’outils' : 'More tools'
+  const moreActive = mobileMenuOpen || mobileMoreItems.some(({ id }) => id === view)
+
+  function navigate(nextView: View) {
+    onViewChange(nextView)
+    setMobileMenuOpen(false)
+  }
+
   return (
     <div className={darkMode ? 'app-shell dark' : 'app-shell'} dir={language === 'ar' ? 'rtl' : 'ltr'} lang={language}>
       <aside className="sidebar">
@@ -105,13 +121,23 @@ export function Layout({ children, view, onViewChange, darkMode, onToggleTheme, 
         <div className="page-wrap">{children}</div>
       </main>
 
+      {mobileMenuOpen && <button className="mobile-nav-scrim" aria-label={language === 'ar' ? 'إغلاق قائمة المزيد' : 'Close more menu'} onClick={() => setMobileMenuOpen(false)} />}
+      {mobileMenuOpen && <section className="mobile-more-menu card-surface" aria-label={exploreLabel}>
+        <header><b>{exploreLabel}</b><button onClick={() => setMobileMenuOpen(false)} aria-label={language === 'ar' ? 'إغلاق' : 'Close'}><X size={19} /></button></header>
+        <div>{mobileMoreItems.map(({ id, icon: Icon }) => <button key={id} className={view === id ? 'active' : ''} onClick={() => navigate(id)}><span><Icon size={22} strokeWidth={view === id ? 2.6 : 2.1} /></span><b>{languageLabels[id]}</b></button>)}</div>
+      </section>}
+
       <nav className="bottom-nav" aria-label={language === 'ar' ? 'التنقل الرئيسي للهاتف' : 'Mobile navigation'}>
-        {navItems.map(({ id, icon: Icon }) => (
-          <button key={id} className={view === id ? 'active' : ''} onClick={() => onViewChange(id)}>
-            <Icon size={21} />
-            <span>{languageLabels[id]}</span>
+        {mobilePrimaryItems.map(({ id, icon: Icon }) => (
+          <button key={id} className={view === id ? 'active' : ''} onClick={() => navigate(id)} aria-current={view === id ? 'page' : undefined}>
+            <span className="bottom-nav-icon"><Icon size={22} strokeWidth={view === id ? 2.7 : 2.1} /></span>
+            <span className="bottom-nav-label">{languageLabels[id]}</span>
           </button>
         ))}
+        <button className={moreActive ? 'active' : ''} onClick={() => setMobileMenuOpen((value) => !value)} aria-expanded={mobileMenuOpen}>
+          <span className="bottom-nav-icon"><LayoutGrid size={22} strokeWidth={moreActive ? 2.7 : 2.1} /></span>
+          <span className="bottom-nav-label">{moreLabel}</span>
+        </button>
       </nav>
     </div>
   )
