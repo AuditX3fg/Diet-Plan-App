@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Lunch plate">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f8e4d3"/><stop offset="1" stop-color="#ce8151"/></linearGradient>
+    <filter id="s" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#763a20" flood-opacity=".22"/></filter>
+  </defs>
+  <rect width="160" height="160" rx="30" fill="url(#bg)"/>
+  <circle cx="80" cy="83" r="55" fill="#fffdf8" filter="url(#s)"/>
+  <circle cx="80" cy="83" r="44" fill="#f5eee7"/>
+  <path d="M53 97c-12-2-20-13-17-24 3-12 17-18 28-13l34 16-14 31-31-10Z" fill="#b65f32"/>
+  <path d="M58 89c-8-2-13-8-11-14 2-7 10-9 17-6l25 12-7 16-24-8Z" fill="#e28a4e"/>
+  <path d="M102 52c14 0 25 11 25 25s-11 23-25 23c-10 0-17-5-20-13 3-8 6-19 8-31 4-3 8-4 12-4Z" fill="#f2d388"/>
+  <path d="M103 61c8 2 13 7 15 13m-18-4c8 2 13 7 16 13m-19-4c6 2 10 6 13 10" fill="none" stroke="#fff1c5" stroke-linecap="round" stroke-width="3"/>
+  <circle cx="107" cy="109" r="10" fill="#61a15d"/><circle cx="122" cy="104" r="9" fill="#79b86b"/><circle cx="118" cy="119" r="8" fill="#4b8a4c"/>
+</svg>

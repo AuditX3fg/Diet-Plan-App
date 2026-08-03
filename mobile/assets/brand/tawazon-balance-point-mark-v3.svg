@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title description">
+  <title id="title">Tawazon Balance Point app icon</title>
+  <desc id="description">An abstract letter T assembled from two balanced emerald forms, an orange pivot, and a dark stem that resolves into a forward check.</desc>
+  <rect width="1024" height="1024" fill="#ECFDF5"/>
+  <g transform="translate(102 104) scale(3.2)">
+    <path d="M40 86C40 65 56 52 77 55L116 62V96L76 101C56 103 40 99 40 86Z" fill="#059669"/>
+    <path d="M216 86C216 65 200 52 179 55L140 62V96L180 101C200 103 216 99 216 86Z" fill="#10B981"/>
+    <path d="M128 99V158C128 184 144 198 162 185L205 143" fill="none" stroke="#0F172A" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="128" cy="78" r="13" fill="#EA580C"/>
+  </g>
+</svg>

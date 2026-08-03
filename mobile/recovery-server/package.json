@@ -1,0 +1,14 @@
+{
+  "name": "tawazon-recovery-server",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --env-file=.env server.mjs",
+    "check": "node --check server.mjs"
+  }
+}

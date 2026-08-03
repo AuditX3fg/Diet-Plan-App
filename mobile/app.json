@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Tawazon Diet Planner",
+    "slug": "tawazon-diet-planner",
+    "scheme": "tawazon",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.auditx3fg.tawazon",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.auditx3fg.tawazon",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#FBF8F1",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Allow Tawazon to access Face ID for secure account access."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Tawazon to scan food barcodes.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ]
+    ]
+  }
+}

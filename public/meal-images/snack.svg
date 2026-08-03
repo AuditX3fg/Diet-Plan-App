@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Healthy snack bowl">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f1e4f5"/><stop offset="1" stop-color="#b891c8"/></linearGradient>
+    <filter id="s" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#553866" flood-opacity=".2"/></filter>
+  </defs>
+  <rect width="160" height="160" rx="30" fill="url(#bg)"/>
+  <ellipse cx="80" cy="73" rx="51" ry="25" fill="#fffdf9" filter="url(#s)"/>
+  <path d="M29 73h102c-3 36-22 57-51 57S32 109 29 73Z" fill="#f7f3ef"/>
+  <ellipse cx="80" cy="72" rx="43" ry="18" fill="#fff"/>
+  <circle cx="57" cy="68" r="10" fill="#d94f64"/><circle cx="77" cy="61" r="11" fill="#7e4a9b"/><circle cx="99" cy="68" r="10" fill="#e55b66"/><circle cx="81" cy="78" r="9" fill="#4d78a8"/>
+  <path d="m54 57-3-8m23 2 2-9m25 15 6-7" stroke="#49734b" stroke-linecap="round" stroke-width="4"/>
+  <path d="M48 91c17 14 48 17 65 0" fill="none" stroke="#ded3cb" stroke-linecap="round" stroke-width="3"/>
+  <circle cx="124" cy="40" r="7" fill="#fff" opacity=".45"/>
+</svg>
