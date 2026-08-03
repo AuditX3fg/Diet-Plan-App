@@ -75,7 +75,11 @@ export async function saveCloudState(state: Record<string, unknown>) { if (!base
 export async function updateCloudAccount(input: Partial<AccountUpdateInput>) { if (!baseUrl || !await getToken()) return null; return request<{ account: UserAccount; passwordChanged?: boolean }>('/v1/account', { method: 'PATCH', body: JSON.stringify(input) }) }
 export async function listCloudTrainingVideos() {
   if (!baseUrl || !await getToken()) throw new Error('Sign in to your cloud account to load training videos.')
-  return request<{ videos: CloudTrainingVideo[] }>('/v1/training/videos')
+  return request<{ videos: CloudTrainingVideo[]; editable: boolean }>('/v1/training/videos')
+}
+export async function updateCloudWorkoutPreference(mode: 'default' | 'custom') {
+  if (!baseUrl || !await getToken()) throw new Error('Sign in to choose a workout plan.')
+  return request<{ account: UserAccount }>('/v1/workout-preference', { method: 'PATCH', body: JSON.stringify({ mode }) })
 }
 export async function uploadCloudTrainingVideo(sessionId: CloudTrainingVideo['sessionId'], title: string, asset: { uri: string; name: string; mimeType?: string | null }) {
   const currentToken = await getToken()

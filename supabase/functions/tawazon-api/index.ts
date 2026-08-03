@@ -38,6 +38,8 @@ interface ProfileRow {
   username: string
   email: string
   display_name: string
+  workout_mode: 'unselected' | 'default' | 'custom'
+  workout_source_user_id: string | null
   created_at: string
 }
 
@@ -144,6 +146,7 @@ function publicAccount(profile: ProfileRow) {
     username: profile.username,
     email: profile.email,
     displayName: profile.display_name,
+    workoutMode: profile.workout_mode ?? 'default',
     createdAt: profile.created_at,
   }
 }
@@ -262,6 +265,7 @@ async function register(body: Record<string, unknown>) {
       username: input.username,
       email: input.email,
       display_name: input.displayName,
+      workout_mode: 'unselected',
       created_at: createdAt,
       updated_at: createdAt,
     })
@@ -411,10 +415,26 @@ async function updateProfile(userId: string, tokenHash: string, body: Record<str
   return { account: publicAccount(data as ProfileRow), usernameChanged, emailChanged, passwordChanged }
 }
 
-async function listVideos(userId: string) {
-  const { data, error } = await admin.from('tawazon_training_videos').select('*').eq('user_id', userId).eq('status', 'ready').order('created_at', { ascending: true })
+async function workoutVideoSource(userId: string) {
+  const profile = await profileById(userId)
+  if (profile.workout_mode !== 'custom') return null
+  return profile.workout_source_user_id ?? userId
+}
+
+async function setWorkoutPreference(userId: string, body: Record<string, unknown>) {
+  const mode = String(body.mode ?? '')
+  if (mode !== 'default' && mode !== 'custom') throw new HttpError(400, 'Choose the default plan or your own video library.')
+  const { data, error } = await admin.from('tawazon_profiles').update({ workout_mode: mode, workout_source_user_id: null, updated_at: new Date().toISOString() }).eq('id', userId).select('*').single()
   if (error) throw error
-  return { videos: (data as VideoRow[]).map(videoPayload) }
+  return { account: publicAccount(data as ProfileRow) }
+}
+
+async function listVideos(userId: string) {
+  const sourceUserId = await workoutVideoSource(userId)
+  if (!sourceUserId) return { videos: [], editable: false }
+  const { data, error } = await admin.from('tawazon_training_videos').select('*').eq('user_id', sourceUserId).eq('status', 'ready').order('created_at', { ascending: true })
+  if (error) throw error
+  return { videos: (data as VideoRow[]).map(videoPayload), editable: sourceUserId === userId }
 }
 
 async function prepareVideoUpload(userId: string, body: Record<string, unknown>) {
@@ -428,6 +448,9 @@ async function prepareVideoUpload(userId: string, body: Record<string, unknown>)
   if (title.length < 2) throw new HttpError(400, 'Enter a video title.')
   if (!extension) throw new HttpError(415, 'Upload an MP4, MOV, or WebM video.')
   if (!Number.isSafeInteger(sizeBytes) || sizeBytes < 1 || sizeBytes > maxVideoBytes) throw new HttpError(413, 'Training videos must be 100 MB or smaller.')
+
+  const { error: preferenceError } = await admin.from('tawazon_profiles').update({ workout_mode: 'custom', workout_source_user_id: null, updated_at: new Date().toISOString() }).eq('id', userId)
+  if (preferenceError) throw preferenceError
 
   const { data: current, error: listError } = await admin.from('tawazon_training_videos').select('session_id,size_bytes').eq('user_id', userId)
   if (listError) throw listError
@@ -509,7 +532,9 @@ async function moveVideo(userId: string, videoId: string, body: Record<string, u
 }
 
 async function videoPlayback(userId: string, videoId: string) {
-  const { data: video, error } = await admin.from('tawazon_training_videos').select('*').eq('id', videoId).eq('user_id', userId).eq('status', 'ready').maybeSingle()
+  const sourceUserId = await workoutVideoSource(userId)
+  if (!sourceUserId) throw new HttpError(404, 'Training video not found.')
+  const { data: video, error } = await admin.from('tawazon_training_videos').select('*').eq('id', videoId).eq('user_id', sourceUserId).eq('status', 'ready').maybeSingle()
   if (error) throw error
   if (!video) throw new HttpError(404, 'Training video not found.')
   const expiresIn = 60 * 60
@@ -545,6 +570,7 @@ Deno.serve(async (request) => {
     if (request.method === 'GET' && path === '/v1/state') return json(200, await loadState(session.userId))
     if (request.method === 'PATCH' && path === '/v1/state') return json(200, await mergeState(session.userId, await readJson(request)))
     if (request.method === 'PATCH' && path === '/v1/account') return json(200, await updateProfile(session.userId, session.tokenHash, await readJson(request)))
+    if (request.method === 'PATCH' && path === '/v1/workout-preference') return json(200, await setWorkoutPreference(session.userId, await readJson(request)))
     if (request.method === 'GET' && path === '/v1/training/videos') return json(200, await listVideos(session.userId))
     if (request.method === 'POST' && path === '/v1/training/videos') return json(201, await prepareVideoUpload(session.userId, await readJson(request)))
 

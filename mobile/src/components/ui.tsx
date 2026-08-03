@@ -24,9 +24,9 @@ export function PrimaryButton({ label, onPress, theme, busy, disabled, icon }: {
   )
 }
 
-export function SecondaryButton({ label, onPress, theme, danger, compact }: { label: string; onPress: () => void; theme: AppTheme; danger?: boolean; compact?: boolean }) {
+export function SecondaryButton({ label, onPress, theme, danger, compact, disabled }: { label: string; onPress: () => void; theme: AppTheme; danger?: boolean; compact?: boolean; disabled?: boolean }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.secondaryButton, compact && styles.compactButton, { borderColor: danger ? palette.danger : theme.line, backgroundColor: theme.surfaceAlt, opacity: pressed ? 0.75 : 1 }]}>
+    <Pressable onPress={onPress} disabled={disabled} style={({ pressed }) => [styles.secondaryButton, compact && styles.compactButton, { borderColor: danger ? palette.danger : theme.line, backgroundColor: theme.surfaceAlt, opacity: disabled ? 0.5 : pressed ? 0.75 : 1 }]}>
       <Text style={[styles.secondaryButtonLabel, { color: danger ? palette.danger : theme.text }]}>{label}</Text>
     </Pressable>
   )

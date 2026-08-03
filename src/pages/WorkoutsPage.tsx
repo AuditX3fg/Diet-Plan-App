@@ -1,17 +1,18 @@
 import { useEffect, useState, type ChangeEvent } from 'react'
 import { ArrowRightLeft, Cloud, Dumbbell, ExternalLink, HeartPulse, LoaderCircle, PlayCircle, ShieldCheck, Sparkles, Timer, Trash2, TrendingUp, Upload, X } from 'lucide-react'
-import { aliTrainingDays, isAliSaadeAccount, type TrainingDayDefinition } from '../aliTraining'
+import { aliTrainingDays, hasAssignedTrainingLibrary, type TrainingDayDefinition } from '../aliTraining'
 import { sportOptions } from '../data'
 import { tr } from '../i18n'
-import { createCloudTrainingVideoUrl, deleteCloudTrainingVideo, listCloudTrainingVideos, moveCloudTrainingVideo, uploadCloudTrainingVideo, type CloudTrainingVideo } from '../services/cloud'
-import type { SportPreference, UserProfile } from '../types'
+import { createCloudTrainingVideoUrl, deleteCloudTrainingVideo, listCloudTrainingVideos, moveCloudTrainingVideo, updateCloudWorkoutPreference, uploadCloudTrainingVideo, type CloudTrainingVideo } from '../services/cloud'
+import type { SportPreference, UserAccount, UserProfile } from '../types'
 import { calculateHealthMetrics, toArabicNumber } from '../utils'
 
 interface WorkoutsPageProps {
-  username: string
+  account: UserAccount
   profile: UserProfile
   preference: SportPreference
   onPreferenceChange: (preference: SportPreference) => void
+  onAccountChange: (account: UserAccount) => void
 }
 
 const sportSessions: Record<SportPreference, string[][]> = {
@@ -36,7 +37,7 @@ const englishSportSessions: Record<SportPreference, string[][]> = {
   football: [['Skills and passing — 45 minutes'], ['Short sprints — 10 rounds'], ['Light play — 45 minutes'], ['Match or training — 60 minutes']],
 }
 
-function AliTrainingPlan() {
+function PersonalTrainingPlan({ onUseDefault, onUseOwnLibrary }: { onUseDefault: () => Promise<boolean>; onUseOwnLibrary: () => Promise<boolean> }) {
   const [videos, setVideos] = useState<CloudTrainingVideo[]>([])
   const [activeId, setActiveId] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
@@ -48,6 +49,8 @@ function AliTrainingPlan() {
   const [videoToMove, setVideoToMove] = useState<CloudTrainingVideo | null>(null)
   const [moveTarget, setMoveTarget] = useState<CloudTrainingVideo['sessionId']>('day-1')
   const [error, setError] = useState('')
+  const [editable, setEditable] = useState(true)
+  const [switchingLibrary, setSwitchingLibrary] = useState(false)
   const selectedVideo = videos.find((video) => video.id === activeId) ?? videos[0]
   const selectedDay = aliTrainingDays.find((day) => day.id === selectedVideo?.sessionId)
 
@@ -57,6 +60,7 @@ function AliTrainingPlan() {
     try {
       const result = await listCloudTrainingVideos()
       setVideos(result.videos)
+      setEditable(result.editable)
       setActiveId((current) => preferredId || (result.videos.some((video) => video.id === current) ? current : result.videos[0]?.id || ''))
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not load training videos.')
@@ -139,12 +143,26 @@ function AliTrainingPlan() {
     }
   }
 
+  async function startOwnLibrary() {
+    setSwitchingLibrary(true)
+    setError('')
+    try {
+      if (await onUseOwnLibrary()) await refreshVideos()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not start your private library.')
+    } finally {
+      setSwitchingLibrary(false)
+    }
+  }
+
   return (
     <div className="workouts-page ali-training-page">
       <section className="feature-intro ali-training-intro">
-        <div><span className="status-pill"><ShieldCheck size={14} /> {tr('مكتبة خاصة', 'Private library')}</span><h2>{tr('جلسات علي التدريبية', 'Ali’s training sessions')}</h2><p>{tr('ارفع الفيديوهات أو انقلها بين الأيام أو احذفها. تتم مزامنة المكتبة مع حسابك على جميع أجهزتك.', 'Upload, move between days, or delete videos. Your library stays synchronized with your account on every device.')}</p></div>
+        <div><span className="status-pill"><ShieldCheck size={14} /> {editable ? tr('مكتبة خاصة', 'Private library') : tr('برنامج مخصص لك', 'Assigned program')}</span><h2>{tr('جلساتك التدريبية', 'Your training sessions')}</h2><p>{editable ? tr('ارفع الفيديوهات أو انقلها بين الأيام أو احذفها. تتم مزامنة المكتبة مع حسابك على جميع أجهزتك.', 'Upload, move between days, or delete videos. Your library stays synchronized with your account on every device.') : tr('تمت مشاركة برنامج مدربك مع حسابك للعرض على كل أجهزتك. لن تؤثر تغييراتك على مكتبة المصدر.', 'Your coach’s program is shared read-only with your account on every device. Your changes cannot affect the source library.')}</p></div>
         <div className="personal-plan-badge"><Cloud size={20} /><span><small>{tr('محفوظ في الحساب', 'Saved to your account')}</small><b>{videos.length} {tr('فيديو', 'videos')}</b></span></div>
       </section>
+
+      <div className="workout-mode-actions card-surface"><span>{tr('نوع البرنامج', 'Workout source')}</span><div><button className="soft-btn" onClick={() => void onUseDefault()}>{tr('استخدام الخطة الافتراضية', 'Use default plan')}</button>{!editable ? <button className="primary-btn" onClick={() => void startOwnLibrary()} disabled={switchingLibrary}><Upload size={16} />{switchingLibrary ? tr('جارٍ التجهيز…', 'Preparing…') : tr('إنشاء مكتبتي الخاصة', 'Create my own library')}</button> : null}</div></div>
 
       <section className="ali-video-player card-surface" aria-live="polite">
         {selectedVideo ? <><div className="ali-video-heading"><span><small>{selectedDay ? tr(selectedDay.titleAr, selectedDay.title) : ''}</small><b>{selectedVideo.title}</b></span><em>{selectedDay ? tr(selectedDay.focusAr, selectedDay.focus) : ''}</em></div>{videoUrl ? <video key={videoUrl} controls playsInline preload="metadata" src={videoUrl}>{tr('متصفحك لا يدعم تشغيل الفيديو.', 'Your browser does not support video playback.')}</video> : <div className="ali-player-state"><LoaderCircle className={playerLoading ? 'spin' : ''} size={28} /><b>{playerLoading ? tr('جارٍ تحميل الفيديو الخاص…', 'Loading private video…') : tr('تعذر تشغيل الفيديو', 'Video unavailable')}</b></div>}</> : <div className="ali-player-state"><Upload size={30} /><b>{loading ? tr('جارٍ تحميل المكتبة…', 'Loading your library…') : tr('ارفع أول فيديو للبدء', 'Upload your first video to begin')}</b><span>{tr('MP4 أو MOV أو WebM — حتى ١٠٠ ميغابايت', 'MP4, MOV, or WebM — up to 100 MB')}</span></div>}
@@ -169,11 +187,11 @@ function AliTrainingPlan() {
             <div className="ali-exercise-list">
               {dayVideos.map((video, index) => {
                 const selected = selectedVideo?.id === video.id
-                return <div key={video.id} className={selected ? 'ali-exercise-row active' : 'ali-exercise-row'}><button onClick={() => setActiveId(video.id)} aria-current={selected ? 'true' : undefined}><span>{index + 1}</span><b>{video.title}</b><PlayCircle size={18} /></button><button className="ali-move-video" onClick={() => openMoveVideo(video)} disabled={Boolean(movingId || deletingId)} aria-label={`${tr('نقل', 'Move')} ${video.title}`}><ArrowRightLeft size={16} /></button><button className="ali-delete-video" onClick={() => void removeVideo(video)} disabled={Boolean(deletingId === video.id || movingId)} aria-label={`${tr('حذف', 'Delete')} ${video.title}`}>{deletingId === video.id ? <LoaderCircle className="spin" size={16} /> : <Trash2 size={16} />}</button></div>
+                return <div key={video.id} className={`${selected ? 'ali-exercise-row active' : 'ali-exercise-row'}${editable ? '' : ' readonly'}`}><button onClick={() => setActiveId(video.id)} aria-current={selected ? 'true' : undefined}><span>{index + 1}</span><b>{video.title}</b><PlayCircle size={18} /></button>{editable ? <><button className="ali-move-video" onClick={() => openMoveVideo(video)} disabled={Boolean(movingId || deletingId)} aria-label={`${tr('نقل', 'Move')} ${video.title}`}><ArrowRightLeft size={16} /></button><button className="ali-delete-video" onClick={() => void removeVideo(video)} disabled={Boolean(deletingId === video.id || movingId)} aria-label={`${tr('حذف', 'Delete')} ${video.title}`}>{deletingId === video.id ? <LoaderCircle className="spin" size={16} /> : <Trash2 size={16} />}</button></> : null}</div>
               })}
               {!dayVideos.length ? <p className="ali-empty-day">{tr('لا توجد فيديوهات لهذا اليوم بعد.', 'No videos added to this day yet.')}</p> : null}
             </div>
-            <label className={uploadingDay === day.id ? 'ali-upload-button busy' : 'ali-upload-button'}><input type="file" accept="video/mp4,video/quicktime,video/webm" multiple onChange={(event) => void uploadFiles(day, event)} disabled={Boolean(uploadingDay)} /><Upload size={16} />{uploadingDay === day.id ? tr('جارٍ الرفع…', 'Uploading…') : tr('إضافة فيديوهات', 'Add videos')}</label>
+            {editable ? <label className={uploadingDay === day.id ? 'ali-upload-button busy' : 'ali-upload-button'}><input type="file" accept="video/mp4,video/quicktime,video/webm" multiple onChange={(event) => void uploadFiles(day, event)} disabled={Boolean(uploadingDay)} /><Upload size={16} />{uploadingDay === day.id ? tr('جارٍ الرفع…', 'Uploading…') : tr('إضافة فيديوهات', 'Add videos')}</label> : null}
           </article>
         } )}
       </section>
@@ -183,8 +201,29 @@ function AliTrainingPlan() {
   )
 }
 
-export function WorkoutsPage({ username, profile, preference, onPreferenceChange }: WorkoutsPageProps) {
-  if (isAliSaadeAccount(username)) return <AliTrainingPlan />
+export function WorkoutsPage({ account, profile, preference, onPreferenceChange, onAccountChange }: WorkoutsPageProps) {
+  const [modeBusy, setModeBusy] = useState(false)
+  const [modeError, setModeError] = useState('')
+  const workoutMode = account.workoutMode ?? (hasAssignedTrainingLibrary(account.username) ? 'custom' : 'default')
+
+  async function chooseWorkoutMode(mode: 'default' | 'custom') {
+    setModeBusy(true)
+    setModeError('')
+    try {
+      const result = await updateCloudWorkoutPreference(mode)
+      onAccountChange({ ...account, ...result.account })
+      return true
+    } catch (caught) {
+      setModeError(caught instanceof Error ? caught.message : 'Could not save your workout choice.')
+      return false
+    } finally {
+      setModeBusy(false)
+    }
+  }
+
+  if (workoutMode === 'unselected') return <div className="workouts-page"><section className="workout-choice card-surface"><span className="status-pill"><Dumbbell size={14} /> {tr('ابدأ التدريب', 'Workout setup')}</span><h2>{tr('كيف تريد أن تتدرب؟', 'How would you like to train?')}</h2><p>{tr('اختر خطة توازن الجاهزة أو أنشئ مكتبتك الخاصة وارفع فيديوهات مدربك لكل يوم.', 'Choose Tawazon’s ready-made plan, or create a private library and upload your coach’s videos for each day.')}</p><div><button onClick={() => void chooseWorkoutMode('default')} disabled={modeBusy}><Sparkles size={24} /><b>{tr('الخطة الافتراضية', 'Default workout')}</b><span>{tr('برنامج أسبوعي جاهز حسب نشاطك وهدفك', 'A ready weekly program matched to your activity and goal')}</span></button><button onClick={() => void chooseWorkoutMode('custom')} disabled={modeBusy}><Upload size={24} /><b>{tr('رفع برنامجي', 'Upload my workout')}</b><span>{tr('فيديوهات خاصة محفوظة في حسابك ومتاحة على كل جهاز', 'Private videos saved to your account and available on every device')}</span></button></div>{modeError ? <div className="ali-training-error" role="alert">{modeError}</div> : null}</section></div>
+
+  if (workoutMode === 'custom') return <PersonalTrainingPlan onUseDefault={() => chooseWorkoutMode('default')} onUseOwnLibrary={() => chooseWorkoutMode('custom')} />
 
   const metrics = calculateHealthMetrics(profile)
   const sessions = sportSessions[preference]
@@ -198,6 +237,9 @@ export function WorkoutsPage({ username, profile, preference, onPreferenceChange
         <div><span className="status-pill"><Dumbbell size={14} /> {tr('خطة التمرين', 'Workout plan')}</span><h2>{tr('برنامج يناسب هدفك', 'A program built for your goal')}</h2><p>{tr('أربعة أيام نشاط وثلاثة أيام استشفاء، مبنية على هدفك وقياساتك.', 'Four active days and three recovery days based on your goal and measurements.')}</p></div>
         <div className="plan-balance"><TrendingUp size={17} /><span><small>BMI {metrics.isValid ? toArabicNumber(metrics.bmi.toFixed(1)) : '—'}</small><b>{bmiTone}</b></span></div>
       </section>
+
+      <div className="workout-mode-actions card-surface"><span>{tr('تريد برنامجك الخاص؟', 'Prefer your own program?')}</span><button className="soft-btn" onClick={() => void chooseWorkoutMode('custom')} disabled={modeBusy}><Upload size={16} /> {tr('رفع فيديوهات التمرين', 'Upload workout videos')}</button></div>
+      {modeError ? <div className="ali-training-error" role="alert">{modeError}</div> : null}
 
       <div className="sport-picker card-surface">
         {sportOptions.map((sport) => <button key={sport.id} className={sport.id === preference ? 'active' : ''} onClick={() => onPreferenceChange(sport.id)}><span>{sport.glyph}</span>{tr(sport.label, sport.labelEn)}</button>)}

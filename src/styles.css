@@ -463,6 +463,18 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(31, 107, 87,
 .history-legend { display: flex; justify-content: space-between; color: var(--muted); font-size: 7px; }.history-legend span { display: flex; align-items: center; gap: 3px; }.history-legend i { width: 7px; height: 7px; border-radius: 2px; border: 1px solid var(--line); background: var(--surface-soft); }.history-legend i.full { background: var(--accent); }.history-legend i.part { background: #d1a84f; }
 
 /* Workouts */
+.workout-choice { max-width: 850px; margin: 30px auto; padding: 34px; text-align: center; }
+.workout-choice h2 { margin: 16px 0 7px; font-size: 28px; }
+.workout-choice > p { max-width: 620px; margin: 0 auto; color: var(--muted); font-size: 13px; line-height: 1.65; }
+.workout-choice > div { margin-top: 26px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.workout-choice > div > button { min-height: 170px; padding: 22px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 7px; border: 1px solid var(--line); border-radius: 18px; color: var(--accent); background: var(--surface-soft); cursor: pointer; }
+.workout-choice > div > button:hover { border-color: color-mix(in srgb, var(--accent) 42%, var(--line)); background: var(--accent-soft); }
+.workout-choice > div > button b { color: var(--text); font-size: 17px; }
+.workout-choice > div > button span { max-width: 280px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.workout-mode-actions { margin: 18px 0; padding: 13px 15px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.workout-mode-actions > span { color: var(--muted); font-size: 11px; font-weight: 700; }
+.workout-mode-actions > div { display: flex; gap: 8px; }
+.workout-mode-actions button { min-height: 40px; }
 .sport-picker { margin: 24px 0 18px; padding: 9px; display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }.sport-picker button { min-height: 62px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; border: 0; border-radius: 11px; color: var(--muted); background: transparent; font-size: 9px; cursor: pointer; }.sport-picker button span { font-size: 20px; }.sport-picker button.active { color: var(--accent); background: var(--accent-soft); font-weight: 700; }
 .workout-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }.workout-day { padding: 17px; }.workout-day.rest { background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface)); }
 .workout-day-head { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 9px; }.workout-day-head > span { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 11px; background: var(--surface-soft); font-size: 20px; }.workout-day-head > div { display: flex; flex-direction: column; }.workout-day-head small { color: var(--muted); font-size: 8px; }.workout-day-head b { font-size: 12px; }.workout-day-head em { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 8px; font-style: normal; }
@@ -492,6 +504,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(31, 107, 87,
 .ali-session > header em { color: var(--muted); font-size: 12px; font-style: normal; }
 .ali-exercise-list { margin-top: 14px; display: grid; gap: 7px; }
 .ali-exercise-row { display: grid; grid-template-columns: minmax(0, 1fr) 42px 42px; overflow: hidden; border: 1px solid transparent; border-radius: 11px; background: var(--surface-soft); }
+.ali-exercise-row.readonly { grid-template-columns: minmax(0, 1fr); }
 .ali-exercise-row:hover { border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); }.ali-exercise-row.active { border-color: color-mix(in srgb, var(--accent) 36%, var(--line)); background: var(--accent-soft); }
 .ali-exercise-row > button:first-child { min-width: 0; min-height: 46px; padding: 7px 10px; display: grid; grid-template-columns: 28px minmax(0, 1fr) 20px; align-items: center; gap: 9px; border: 0; color: var(--text); background: transparent; text-align: start; cursor: pointer; }
 .ali-exercise-row > button:first-child > span { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 8px; color: var(--muted); background: var(--surface); font-size: 12px; font-weight: 800; }
@@ -859,6 +872,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(31, 107, 87,
   .sport-picker { overflow-x: auto; display: flex; }
   .sport-picker button { min-width: 82px; }
   .workout-grid { grid-template-columns: 1fr; }
+  .workout-choice { padding: 24px 16px; }
+  .workout-choice > div { grid-template-columns: 1fr; }
+  .workout-mode-actions { align-items: stretch; flex-direction: column; }
+  .workout-mode-actions > div { flex-direction: column; }
   .ali-video-player { padding: 12px; }
   .ali-video-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
   .ali-video-player video { height: 58vh; min-height: 360px; }

@@ -80,6 +80,7 @@ export interface UserAccount {
   username: string
   email?: string
   displayName: string
+  workoutMode?: 'unselected' | 'default' | 'custom'
   createdAt: string
 }
 

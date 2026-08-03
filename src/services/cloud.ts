@@ -103,7 +103,12 @@ export async function updateCloudAccount(input: Partial<AccountUpdateInput>) {
 
 export async function listCloudTrainingVideos() {
   if (!baseUrl || !token()) throw new Error('Sign in to your cloud account to load training videos.')
-  return request<{ videos: CloudTrainingVideo[] }>('/v1/training/videos')
+  return request<{ videos: CloudTrainingVideo[]; editable: boolean }>('/v1/training/videos')
+}
+
+export async function updateCloudWorkoutPreference(mode: 'default' | 'custom') {
+  if (!baseUrl || !token()) throw new Error('Sign in to choose a workout plan.')
+  return request<{ account: UserAccount }>('/v1/workout-preference', { method: 'PATCH', body: JSON.stringify({ mode }) })
 }
 
 export async function uploadCloudTrainingVideo(sessionId: CloudTrainingVideo['sessionId'], title: string, file: File) {
