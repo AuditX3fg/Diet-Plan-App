@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   mealCopy: { flex: 1, gap: 5 },
   mealMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   mealType: { fontSize: 10, fontWeight: '900', letterSpacing: 0.7, textTransform: 'uppercase' },
-  mealTime: { fontSize: 27, lineHeight: 31, fontWeight: '700', letterSpacing: -0.5 },
+  mealTime: { fontSize: 21, lineHeight: 24, fontWeight: '700', letterSpacing: -0.5 },
   mealSelection: { fontSize: 14, lineHeight: 18, fontWeight: '900' },
   mealSub: { fontSize: 10 },
   chevron: { fontSize: 25, fontWeight: '300' },
