@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   macroRow: { minHeight: 59, paddingHorizontal: 6, borderRadius: 18, backgroundColor: 'rgba(255,255,255,.09)', flexDirection: 'row', alignItems: 'center' },
   macro: { flex: 1, alignItems: 'center', gap: 2 },
   macroValue: { color: '#fff', fontSize: 16, fontWeight: '900' },
-  macroLabel: { color: '#b9ded1', fontSize: 9, fontWeight: '700' },
+  macroLabel: { color: '#b9ded1', fontSize: 18, fontWeight: '700' },
   macroDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,.14)' },
   waterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   waterTitle: { fontSize: 16, fontWeight: '900' },
