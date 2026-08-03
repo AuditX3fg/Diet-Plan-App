@@ -100,6 +100,8 @@ export interface FoodProduct {
   barcode?: string
   name: string
   brand?: string
+  imageUrl?: string
+  source?: 'open-food-facts' | 'usda-fooddata-central' | 'plan' | 'offline'
   calories: number
   protein: number
   carbs: number

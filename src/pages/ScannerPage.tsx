@@ -1,9 +1,10 @@
-import { ChangeEvent, FormEvent, useRef, useState } from 'react'
-import { Barcode, Camera, Check, Image, LoaderCircle, PackageSearch, Search, ShoppingBasket, Trash2 } from 'lucide-react'
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react'
+import { Barcode, Camera, Check, Flashlight, Image, LoaderCircle, PackageSearch, Search, ShoppingBasket, Trash2, Video, VideoOff } from 'lucide-react'
 import { mealGroups } from '../data'
 import { getActiveLanguage, tr } from '../i18n'
 import type { FoodProduct } from '../types'
 import { toArabicNumber } from '../utils'
+import { lookupProductBarcode, searchProductsLive } from '../services/products'
 
 interface ScannerPageProps {
   history: FoodProduct[]
@@ -13,42 +14,11 @@ interface ScannerPageProps {
   onClearHistory: () => void
 }
 
-interface OffProduct {
-  code?: string
-  product_name_ar?: string
-  product_name?: string
-  brands?: string
-  image_front_small_url?: string
-  nutrition_grades?: string
-  serving_size?: string
-  nutriments?: Record<string, number>
-}
-
 const demoProducts: FoodProduct[] = [
   { id: 'demo-yogurt', barcode: '5285000550014', name: 'زبادي يوناني', nameEn: 'Greek yogurt', brand: 'منتج تجريبي', brandEn: 'Demo product', calories: 97, protein: 9, carbs: 4, fat: 5, serving: 'لكل ١٠٠غ', servingEn: 'Per 100 g', grade: 'a' },
   { id: 'demo-oats', barcode: '7613034626844', name: 'شوفان كامل', nameEn: 'Whole oats', brand: 'منتج تجريبي', brandEn: 'Demo product', calories: 370, protein: 13, carbs: 60, fat: 7, serving: 'لكل ١٠٠غ', servingEn: 'Per 100 g', grade: 'a' },
   { id: 'demo-tuna', barcode: '6281007021339', name: 'تونا بالماء', nameEn: 'Tuna in water', brand: 'منتج تجريبي', brandEn: 'Demo product', calories: 116, protein: 26, carbs: 0, fat: 1, serving: 'لكل ١٠٠غ', servingEn: 'Per 100 g', grade: 'a' },
 ]
-
-function mapProduct(product: OffProduct): FoodProduct {
-  const nutrients = product.nutriments ?? {}
-  const calories = nutrients['energy-kcal_100g'] ?? nutrients['energy-kcal_serving'] ?? 0
-  return {
-    id: product.code || `${product.product_name}-${Date.now()}`,
-    barcode: product.code,
-    name: product.product_name_ar || product.product_name || 'منتج غير مسمى',
-    nameEn: product.product_name || product.product_name_ar || 'Unnamed product',
-    brand: product.brands,
-    imageUrl: product.image_front_small_url,
-    calories: Math.round(calories),
-    protein: Math.round((nutrients.proteins_100g ?? 0) * 10) / 10,
-    carbs: Math.round((nutrients.carbohydrates_100g ?? 0) * 10) / 10,
-    fat: Math.round((nutrients.fat_100g ?? 0) * 10) / 10,
-    serving: product.serving_size ? `الحصة ${product.serving_size}` : 'لكل ١٠٠غ',
-    servingEn: product.serving_size ? `Serving ${product.serving_size}` : 'Per 100 g',
-    grade: product.nutrition_grades,
-  }
-}
 
 export function ScannerPage({ history, shoppingList, onResult, onToggleShopping, onClearHistory }: ScannerPageProps) {
   const [mode, setMode] = useState<'scan' | 'list'>('scan')
@@ -57,7 +27,19 @@ export function ScannerPage({ history, shoppingList, onResult, onToggleShopping,
   const [result, setResult] = useState<FoodProduct | null>(history[0] ?? null)
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [liveResults, setLiveResults] = useState<FoodProduct[]>([])
+  const [liveLoading, setLiveLoading] = useState(false)
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [cameraDevices, setCameraDevices] = useState<MediaDeviceInfo[]>([])
+  const [selectedDeviceId, setSelectedDeviceId] = useState('')
+  const [zoom, setZoom] = useState(1)
+  const [zoomRange, setZoomRange] = useState<{ min: number; max: number; step: number } | null>(null)
+  const [torch, setTorch] = useState(false)
+  const [torchAvailable, setTorchAvailable] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const detectingRef = useRef(false)
   const localizedProductName = (product: FoodProduct) => {
     if (getActiveLanguage() === 'ar') return product.name
     const migrated = demoProducts.find((item) => item.id === product.id)
@@ -74,14 +56,99 @@ export function ScannerPage({ history, shoppingList, onResult, onToggleShopping,
     return product.servingEn ?? migrated?.servingEn ?? 'Per 100 g'
   }
 
+  useEffect(() => {
+    if (!cameraOpen) return
+    let cancelled = false
+    let timer = 0
+    async function startCamera() {
+      try {
+        streamRef.current?.getTracks().forEach((track) => track.stop())
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          audio: false,
+        })
+        if (cancelled) { stream.getTracks().forEach((track) => track.stop()); return }
+        streamRef.current = stream
+        if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play() }
+        const devices = (await navigator.mediaDevices.enumerateDevices()).filter((device) => device.kind === 'videoinput')
+        setCameraDevices(devices)
+        const track = stream.getVideoTracks()[0]
+        if (!selectedDeviceId) {
+          const closeLens = devices.find((device) => /macro|ultra.?wide|0[.,]5|back.*ultra/i.test(device.label))
+          setSelectedDeviceId(closeLens?.deviceId || track.getSettings().deviceId || '')
+        }
+        const capabilities = track.getCapabilities() as MediaTrackCapabilities & { zoom?: { min: number; max: number; step: number }; torch?: boolean }
+        setZoomRange(capabilities.zoom ?? null)
+        setTorchAvailable(Boolean(capabilities.torch))
+        if (capabilities.zoom) setZoom((track.getSettings() as MediaTrackSettings & { zoom?: number }).zoom ?? capabilities.zoom.min)
+        const Detector = (window as unknown as { BarcodeDetector?: new (options: { formats: string[] }) => { detect(source: HTMLVideoElement): Promise<{ rawValue: string }[]> } }).BarcodeDetector
+        if (!Detector) return
+        const detector = new Detector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] })
+        const detect = async () => {
+          if (cancelled || !videoRef.current || detectingRef.current) return
+          detectingRef.current = true
+          try {
+            const matches = await detector.detect(videoRef.current)
+            if (matches[0]?.rawValue) {
+              setBarcode(matches[0].rawValue)
+              setCameraOpen(false)
+              await runSearch('barcode', matches[0].rawValue)
+              return
+            }
+          } catch { /* The video can be between frames while lenses change. */ }
+          finally { detectingRef.current = false }
+          timer = window.setTimeout(detect, 280)
+        }
+        timer = window.setTimeout(detect, 400)
+      } catch {
+        setMessage(tr('تعذر فتح الكاميرا. اسمح بالوصول أو استخدم صورة من المعرض.', 'Camera could not open. Allow camera access or choose a gallery image.'))
+        setCameraOpen(false)
+      }
+    }
+    void startCamera()
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+      streamRef.current?.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
+  }, [cameraOpen, selectedDeviceId])
+
+  useEffect(() => {
+    const query = name.trim()
+    if (query.length < 3) { setLiveResults([]); setLiveLoading(false); return }
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      setLiveLoading(true)
+      try {
+        const remote = await searchProductsLive(query, controller.signal)
+        setLiveResults(remote.products)
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) setLiveResults([])
+      } finally {
+        if (!controller.signal.aborted) setLiveLoading(false)
+      }
+    }, 900)
+    return () => { window.clearTimeout(timer); controller.abort() }
+  }, [name])
+
+  async function applyCameraConstraint(constraint: Record<string, unknown>) {
+    const track = streamRef.current?.getVideoTracks()[0]
+    if (!track) return
+    await track.applyConstraints({ advanced: [constraint] } as MediaTrackConstraints)
+  }
+
+  function chooseLiveResult(product: FoodProduct) {
+    setResult(product)
+    setLiveResults([])
+    setName(localizedProductName(product))
+    onResult(product)
+  }
+
   async function fetchBarcode(code: string) {
     const local = demoProducts.find((item) => item.barcode === code)
     if (local) return local
-    const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=code,product_name,product_name_ar,brands,image_front_small_url,nutrition_grades,serving_size,nutriments`)
-    if (!response.ok) throw new Error('network')
-    const payload = await response.json() as { status: number; product?: OffProduct }
-    if (!payload.product || payload.status !== 1) throw new Error('not-found')
-    return mapProduct(payload.product)
+    return lookupProductBarcode(code)
   }
 
   async function searchByName(query: string) {
@@ -93,11 +160,9 @@ export function ScannerPage({ history, shoppingList, onResult, onToggleShopping,
     }
     const local = demoProducts.find((item) => item.name.includes(query) || item.nameEn?.toLocaleLowerCase().includes(lowerQuery))
     if (local) return local
-    const response = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=1&fields=code,product_name,product_name_ar,brands,image_front_small_url,nutrition_grades,serving_size,nutriments`)
-    if (!response.ok) throw new Error('network')
-    const payload = await response.json() as { products?: OffProduct[] }
-    if (!payload.products?.[0]) throw new Error('not-found')
-    return mapProduct(payload.products[0])
+    const remote = await searchProductsLive(query)
+    if (!remote.products[0]) throw new Error('not-found')
+    return remote.products[0]
   }
 
   async function runSearch(kind: 'barcode' | 'name', value: string) {
@@ -155,14 +220,24 @@ export function ScannerPage({ history, shoppingList, onResult, onToggleShopping,
       ) : (
         <section className="scanner-layout">
           <div className="scan-tools card-surface">
-            <div className="camera-zone">
-              <span><Camera size={28} /></span><div><b>{tr('التقط صورة للباركود', 'Take a barcode photo')}</b><p>{tr('تعمل المعالجة على جهازك، ثم نبحث عن المنتج.', 'The image is processed on your device before product lookup.')}</p></div>
-              <button className="primary-btn" onClick={() => fileRef.current?.click()}><Image size={16} /> {tr('الكاميرا أو المعرض', 'Camera or gallery')}</button>
+            {cameraOpen ? <div className="live-camera">
+              <div className="camera-preview"><video ref={videoRef} playsInline muted /><div className="camera-reticle"><span /><small>{tr('قرّب الباركود وثبّت الهاتف', 'Move close and hold the barcode steady')}</small></div></div>
+              <div className="camera-controls">
+                {cameraDevices.length > 1 && <label><span>{tr('العدسة', 'Lens')}</span><select value={selectedDeviceId} onChange={(event) => setSelectedDeviceId(event.target.value)}>{cameraDevices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `${tr('كاميرا', 'Camera')} ${index + 1}`}</option>)}</select></label>}
+                {zoomRange && <label className="zoom-control"><span>{tr('تكبير قريب', 'Close zoom')} {zoom.toFixed(1)}×</span><input type="range" min={zoomRange.min} max={zoomRange.max} step={zoomRange.step || .1} value={zoom} onChange={(event) => { const next = Number(event.target.value); setZoom(next); void applyCameraConstraint({ zoom: next }) }} /></label>}
+                {torchAvailable && <button className={torch ? 'soft-btn active' : 'soft-btn'} onClick={() => { const next = !torch; setTorch(next); void applyCameraConstraint({ torch: next }) }}><Flashlight size={15} /> {tr('إضاءة', 'Light')}</button>}
+                <button className="soft-btn" onClick={() => setCameraOpen(false)}><VideoOff size={15} /> {tr('إغلاق', 'Close')}</button>
+              </div>
+            </div> : <div className="camera-zone">
+              <span><Camera size={28} /></span><div><b>{tr('ماسح قريب مباشر', 'Live close-focus scanner')}</b><p>{tr('يستخدم أفضل عدسة خلفية يتيحها المتصفح مع التركيز والتكبير.', 'Uses the best rear lens exposed by your browser, with focus and zoom assistance.')}</p></div>
+              <div className="camera-actions"><button className="primary-btn" onClick={() => setCameraOpen(true)}><Video size={16} /> {tr('فتح الماسح', 'Open scanner')}</button><button className="soft-btn" onClick={() => fileRef.current?.click()}><Image size={16} /> {tr('صورة', 'Photo')}</button></div>
               <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleImage} hidden />
-            </div>
+            </div>}
             <div className="scan-separator"><span>{tr('أو', 'OR')}</span></div>
             <form className="search-form" onSubmit={submitBarcode}><label><Barcode size={17} /><input inputMode="numeric" value={barcode} onChange={(event) => setBarcode(event.target.value)} placeholder={tr('أدخل رقم الباركود', 'Enter barcode number')} /></label><button className="primary-btn" disabled={loading}>{loading ? <LoaderCircle className="spin" size={17} /> : <Search size={17} />} {tr('بحث', 'Search')}</button></form>
-            <form className="search-form" onSubmit={submitName}><label><PackageSearch size={17} /><input value={name} onChange={(event) => setName(event.target.value)} placeholder={tr('أو ابحث باسم المنتج', 'Or search by product name')} /></label><button className="soft-btn" disabled={loading}>{tr('بحث بالاسم', 'Search by name')}</button></form>
+            <form className="search-form live-search-form" onSubmit={submitName}><label><PackageSearch size={17} /><input value={name} onChange={(event) => setName(event.target.value)} placeholder={tr('ابحث مباشرة باسم المنتج', 'Live search by product name')} />{liveLoading && <LoaderCircle className="spin" size={15} />}</label><button className="soft-btn" disabled={loading}>{tr('بحث بالاسم', 'Search by name')}</button></form>
+            {liveResults.length > 0 && <div className="live-product-results" role="listbox" aria-label={tr('نتائج المنتجات المباشرة', 'Live product results')}>{liveResults.map((product) => <button type="button" key={product.id} onClick={() => chooseLiveResult(product)}><span>{product.imageUrl ? <img src={product.imageUrl} alt="" /> : '🥫'}</span><p><b>{localizedProductName(product)}</b><small>{localizedBrand(product) || localizedServing(product)}</small></p><em>{toArabicNumber(product.calories)} {tr('سعرة', 'kcal')}</em></button>)}</div>}
+            <p className="search-source"><span />{tr('نتائج مباشرة من قاعدة USDA FoodData Central', 'Live results from USDA FoodData Central')}</p>
             {message && <p className="form-message">{message}</p>}
           </div>
 

@@ -97,6 +97,7 @@ export interface FoodProduct {
   brand?: string
   brandEn?: string
   imageUrl?: string
+  source?: 'open-food-facts' | 'usda-fooddata-central' | 'plan' | 'offline'
   calories: number
   protein: number
   carbs: number
