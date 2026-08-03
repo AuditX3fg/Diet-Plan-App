@@ -7,7 +7,7 @@ export interface TrainingDayDefinition {
 }
 
 export const ALI_SAADE_USERNAME = 'alisaade'
-const assignedTrainingUsernames = new Set([ALI_SAADE_USERNAME, 'khalil', '7made'])
+const assignedTrainingUsernames = new Set([ALI_SAADE_USERNAME, 'khalil', '7made', '7obbalino'])
 
 export const aliTrainingDays: TrainingDayDefinition[] = [
   { id: 'day-1', title: 'Day 1', titleAr: 'اليوم الأول', focus: 'Chest & triceps', focusAr: 'الصدر والترايسبس' },
