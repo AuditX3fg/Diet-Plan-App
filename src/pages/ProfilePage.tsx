@@ -1,11 +1,14 @@
-import { Calculator, Check, CircleUserRound, HeartPulse, Info, Sparkles, Target } from 'lucide-react'
-import type { UserProfile } from '../types'
+import { useEffect, useState, type FormEvent } from 'react'
+import { AtSign, Calculator, Check, CircleUserRound, HeartPulse, Info, KeyRound, Mail, ShieldCheck, Sparkles, Target } from 'lucide-react'
+import type { AccountUpdateInput, UserAccount, UserProfile } from '../types'
 import { tr } from '../i18n'
 import { calculateHealthMetrics, toArabicNumber, type HealthProfileIssue } from '../utils'
 
 interface ProfilePageProps {
   profile: UserProfile
+  account: UserAccount
   onChange: (profile: UserProfile) => void
+  onAccountUpdate: (input: AccountUpdateInput) => Promise<UserAccount>
 }
 
 const activityOptions = [
@@ -29,11 +32,25 @@ const issueLabels: Record<HealthProfileIssue, [string, string]> = {
   targetFat: ['الدهون الحالية يجب أن تكون بين ٢٠ و٢٠٠ غ.', 'Current fat must be between 20 and 200 g.'],
 }
 
-export function ProfilePage({ profile, onChange }: ProfilePageProps) {
+export function ProfilePage({ profile, account, onChange, onAccountUpdate }: ProfilePageProps) {
+  const [username, setUsername] = useState(account.username)
+  const [email, setEmail] = useState(account.email ?? '')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [accountBusy, setAccountBusy] = useState(false)
+  const [accountError, setAccountError] = useState('')
+  const [accountSaved, setAccountSaved] = useState(false)
   const metrics = calculateHealthMetrics(profile)
   const profileNameValid = profile.name.trim().length >= 2
   const bmiLabel = !metrics.isValid ? tr('أكمل البيانات الصحيحة', 'Complete valid details') : metrics.bmi < 18.5 ? tr('أقل من الطبيعي', 'Underweight') : metrics.bmi < 25 ? tr('ضمن النطاق الصحي', 'Healthy range') : metrics.bmi < 30 ? tr('فوق الطبيعي', 'Overweight') : tr('مرتفع', 'High')
   const metricValue = (value: number | string) => metrics.isValid ? toArabicNumber(value) : '—'
+  const identityChanged = username.trim().toLowerCase() !== account.username || email.trim().toLowerCase() !== (account.email ?? '')
+
+  useEffect(() => {
+    setUsername(account.username)
+    setEmail(account.email ?? '')
+  }, [account.email, account.username])
 
   function update<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {
     onChange({ ...profile, [key]: value })
@@ -41,6 +58,34 @@ export function ProfilePage({ profile, onChange }: ProfilePageProps) {
 
   function applyCalculatedGoal() {
     onChange({ ...profile, targetCalories: metrics.targetCalories, targetProtein: metrics.protein, targetCarbs: metrics.carbs, targetFat: metrics.fat })
+  }
+
+  async function saveAccount(event: FormEvent) {
+    event.preventDefault()
+    setAccountError('')
+    setAccountSaved(false)
+    if (newPassword !== confirmPassword) {
+      setAccountError(tr('كلمتا المرور الجديدتان غير متطابقتين.', 'New passwords do not match.'))
+      return
+    }
+    if ((identityChanged || newPassword) && !currentPassword) {
+      setAccountError(tr('أدخل كلمة المرور الحالية لحفظ التغييرات الحساسة.', 'Enter your current password to save sensitive changes.'))
+      return
+    }
+    setAccountBusy(true)
+    try {
+      const next = await onAccountUpdate({ displayName: profile.name, username, email, currentPassword, newPassword: newPassword || undefined })
+      setUsername(next.username)
+      setEmail(next.email ?? '')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setAccountSaved(true)
+    } catch (error) {
+      setAccountError(error instanceof Error ? error.message : tr('تعذر تحديث الحساب.', 'Could not update the account.'))
+    } finally {
+      setAccountBusy(false)
+    }
   }
 
   return (
@@ -94,6 +139,26 @@ export function ProfilePage({ profile, onChange }: ProfilePageProps) {
 
           <div className="health-note"><HeartPulse size={20} /><p><b>{tr('صحتك أولاً', 'Your health comes first')}</b>{tr('هذه الحسابات إرشادية ولا تغني عن استشارة الطبيب أو مختص التغذية.', 'These calculations are estimates and do not replace advice from a doctor or dietitian.')}</p><Info size={16} /></div>
         </aside>
+      </section>
+
+      <section className="account-security-card card-surface">
+        <div className="section-heading">
+          <div><p className="eyebrow">{tr('الحساب والأمان', 'Account & security')}</p><h2>{tr('تحكم كامل ببيانات حسابك', 'Manage all account information')}</h2><p>{tr('غيّر اسم المستخدم والبريد وكلمة المرور. نطلب كلمة المرور الحالية قبل أي تغيير حساس.', 'Change your username, email, and password. Your current password is required before sensitive changes.')}</p></div>
+          <span className="form-heading-icon"><ShieldCheck size={19} /></span>
+        </div>
+        <form onSubmit={(event) => void saveAccount(event)}>
+          <div className="account-security-grid">
+            <label><span><AtSign size={14} /> {tr('اسم المستخدم', 'Username')}</span><input value={username} onChange={(event) => { setUsername(event.target.value); setAccountSaved(false) }} autoCapitalize="none" autoComplete="username" minLength={3} maxLength={24} /></label>
+            <label><span><Mail size={14} /> {tr('البريد الإلكتروني', 'Email address')}</span><input type="email" value={email} onChange={(event) => { setEmail(event.target.value); setAccountSaved(false) }} autoCapitalize="none" autoComplete="email" /></label>
+            <label><span><KeyRound size={14} /> {tr('كلمة المرور الحالية', 'Current password')}</span><input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} autoComplete="current-password" placeholder={identityChanged || newPassword ? tr('مطلوبة لحفظ التغييرات', 'Required to save changes') : tr('اتركها فارغة إن لم تغيّر بيانات حساسة', 'Leave blank unless changing secure details')} /></label>
+            <label><span><KeyRound size={14} /> {tr('كلمة المرور الجديدة', 'New password')}</span><input type="password" value={newPassword} onChange={(event) => { setNewPassword(event.target.value); setAccountSaved(false) }} autoComplete="new-password" minLength={8} placeholder={tr('٨ أحرف على الأقل', 'At least 8 characters')} /></label>
+            <label><span><Check size={14} /> {tr('تأكيد كلمة المرور الجديدة', 'Confirm new password')}</span><input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={8} /></label>
+            <div className="account-member"><small>{tr('عضو منذ', 'Member since')}</small><b>{new Date(account.createdAt).toLocaleDateString()}</b></div>
+          </div>
+          {accountError && <div className="account-message error" role="alert"><Info size={16} /><span>{accountError}</span></div>}
+          {accountSaved && <div className="account-message success" role="status"><Check size={16} /><span>{tr('تم تحديث جميع بيانات الحساب بنجاح.', 'Your account information was updated successfully.')}</span></div>}
+          <div className="account-security-actions"><p>{tr('اسم العرض وباقي بيانات الصحة تُحفظ تلقائياً. استخدم هذا الزر لتحديث بيانات الدخول.', 'Display name and health details save automatically. Use this button for sign-in details.')}</p><button className="primary-btn account-save-btn" type="submit" disabled={accountBusy || !profileNameValid}>{accountBusy ? tr('جارٍ الحفظ…', 'Saving…') : tr('حفظ بيانات الحساب', 'Save account details')} <ShieldCheck size={16} /></button></div>
+        </form>
       </section>
     </div>
   )

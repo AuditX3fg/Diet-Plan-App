@@ -347,12 +347,68 @@ async function mergeState(userId: string, body: Record<string, unknown>) {
   return statePayload(row)
 }
 
-async function updateProfile(userId: string, body: Record<string, unknown>) {
-  const displayName = String(body.displayName ?? '').trim().slice(0, 100)
-  if (displayName.length < 2) throw new HttpError(400, 'Enter your full name.')
-  const { data, error } = await admin.from('tawazon_profiles').update({ display_name: displayName, updated_at: new Date().toISOString() }).eq('id', userId).select('*').single()
-  if (error) throw error
-  return { account: publicAccount(data as ProfileRow) }
+async function updateProfile(userId: string, tokenHash: string, body: Record<string, unknown>) {
+  const current = await profileById(userId)
+  const displayName = String(body.displayName ?? current.display_name).trim().slice(0, 100)
+  const username = body.username === undefined ? current.username : normalize(body.username)
+  const email = body.email === undefined ? current.email : normalize(body.email)
+  const currentPassword = String(body.currentPassword ?? '')
+  const newPassword = String(body.newPassword ?? '')
+  if (displayName.length < 2) throw new HttpError(400, 'Display name must contain at least two characters.')
+  if (!/^[a-z0-9._-]{3,24}$/.test(username)) throw new HttpError(400, 'Username must be 3–24 characters using letters, numbers, dots, dashes, or underscores.')
+  if (!isEmail(email)) throw new HttpError(400, 'Enter a valid email address.')
+  if (newPassword && (newPassword.length < 8 || newPassword.length > 200)) throw new HttpError(400, 'New password must contain at least 8 characters.')
+
+  const usernameChanged = username !== current.username
+  const emailChanged = email !== current.email
+  const passwordChanged = Boolean(newPassword)
+  const sensitiveChange = usernameChanged || emailChanged || passwordChanged
+  if (sensitiveChange) {
+    if (!currentPassword) throw new HttpError(400, 'Enter your current password to save account changes.')
+    const authClient = createAuthClient()
+    const { data, error } = await authClient.auth.signInWithPassword({ email: current.email, password: currentPassword })
+    await authClient.auth.signOut().catch(() => undefined)
+    if (error || data.user?.id !== userId) throw new HttpError(401, 'Current password is incorrect.')
+  }
+
+  if (usernameChanged) {
+    const { data } = await admin.from('tawazon_profiles').select('id').eq('username', username).neq('id', userId).maybeSingle()
+    if (data) throw new HttpError(409, 'That username is already in use.')
+  }
+  if (emailChanged) {
+    const { data } = await admin.from('tawazon_profiles').select('id').eq('email', email).neq('id', userId).maybeSingle()
+    if (data) throw new HttpError(409, 'That email is already connected to an account.')
+  }
+
+  if (emailChanged || passwordChanged || usernameChanged || displayName !== current.display_name) {
+    const { error: authError } = await admin.auth.admin.updateUserById(userId, {
+      ...(emailChanged ? { email, email_confirm: true } : {}),
+      ...(passwordChanged ? { password: newPassword } : {}),
+      user_metadata: { display_name: displayName, username },
+    })
+    if (authError) {
+      const duplicate = authError.message.toLowerCase().includes('already')
+      throw new HttpError(duplicate ? 409 : 400, duplicate ? 'That email is already connected to an account.' : authError.message)
+    }
+  }
+
+  const { data, error } = await admin.from('tawazon_profiles').update({
+    display_name: displayName,
+    username,
+    email,
+    updated_at: new Date().toISOString(),
+  }).eq('id', userId).select('*').single()
+  if (error) {
+    await admin.auth.admin.updateUserById(userId, {
+      ...(emailChanged ? { email: current.email, email_confirm: true } : {}),
+      ...(passwordChanged ? { password: currentPassword } : {}),
+      user_metadata: { display_name: current.display_name, username: current.username },
+    }).catch(() => undefined)
+    if (error.code === '23505') throw new HttpError(409, 'That username or email is already connected to an account.')
+    throw error
+  }
+  if (passwordChanged) await admin.from('tawazon_sessions').delete().eq('user_id', userId).neq('token_hash', tokenHash)
+  return { account: publicAccount(data as ProfileRow), usernameChanged, emailChanged, passwordChanged }
 }
 
 async function listVideos(userId: string) {
@@ -488,7 +544,7 @@ Deno.serve(async (request) => {
     if (request.method === 'GET' && path === '/v1/me') return json(200, await accountResponse(session.userId, false))
     if (request.method === 'GET' && path === '/v1/state') return json(200, await loadState(session.userId))
     if (request.method === 'PATCH' && path === '/v1/state') return json(200, await mergeState(session.userId, await readJson(request)))
-    if (request.method === 'PATCH' && path === '/v1/account') return json(200, await updateProfile(session.userId, await readJson(request)))
+    if (request.method === 'PATCH' && path === '/v1/account') return json(200, await updateProfile(session.userId, session.tokenHash, await readJson(request)))
     if (request.method === 'GET' && path === '/v1/training/videos') return json(200, await listVideos(session.userId))
     if (request.method === 'POST' && path === '/v1/training/videos') return json(201, await prepareVideoUpload(session.userId, await readJson(request)))
 

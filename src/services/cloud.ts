@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { UserAccount } from '../types'
+import type { AccountUpdateInput, UserAccount } from '../types'
 
 const defaultSupabaseUrl = 'https://wxyrmynixsojofxtpfqi.supabase.co'
 const defaultPublishableKey = 'sb_publishable_hJ0TwMjeHZq9pZ0zZlfeHg_tdUNQi8f'
@@ -96,9 +96,9 @@ export async function saveCloudState(state: Record<string, unknown>) {
   return request<CloudState>('/v1/state', { method: 'PATCH', body: JSON.stringify({ state }) })
 }
 
-export async function updateCloudAccount(displayName: string) {
+export async function updateCloudAccount(input: Partial<AccountUpdateInput>) {
   if (!baseUrl || !token()) return null
-  return request<{ account: UserAccount }>('/v1/account', { method: 'PATCH', body: JSON.stringify({ displayName }) })
+  return request<{ account: UserAccount; passwordChanged?: boolean }>('/v1/account', { method: 'PATCH', body: JSON.stringify(input) })
 }
 
 export async function listCloudTrainingVideos() {

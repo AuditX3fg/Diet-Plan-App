@@ -116,11 +116,26 @@ export function mergeState(userId, patch) {
   return { revision, state, updatedAt }
 }
 
-export function updateUser(userId, patch) {
+export function updateUser(userId, patch, currentToken = '') {
   const current = publicAccount(userId)
   if (!current) return null
   const displayName = String(patch.displayName || current.displayName).trim().slice(0, 100)
-  db.prepare('UPDATE users SET display_name = ?, updated_at = ? WHERE id = ?').run(displayName, nowIso(), userId)
+  const username = normalize(patch.username || current.username)
+  const email = normalize(patch.email || current.email)
+  db.exec('BEGIN IMMEDIATE')
+  try {
+    db.prepare('UPDATE users SET display_name = ?, username = ?, email = ?, updated_at = ? WHERE id = ?').run(displayName, username, email, nowIso(), userId)
+    if (patch.newPassword) {
+      const salt = randomBytes(16).toString('hex')
+      db.prepare('UPDATE credentials SET password_salt = ?, password_hash = ?, password_updated_at = ? WHERE user_id = ?').run(salt, secretHash(patch.newPassword, salt), nowIso(), userId)
+      db.prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash <> ?').run(userId, tokenHash(currentToken))
+      db.prepare('DELETE FROM recovery_challenges WHERE user_id = ?').run(userId)
+    }
+    db.exec('COMMIT')
+  } catch (error) {
+    db.exec('ROLLBACK')
+    throw error
+  }
   return publicAccount(userId)
 }
 

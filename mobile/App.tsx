@@ -10,7 +10,7 @@ import { ProgressScreen } from './src/screens/ProgressScreen'
 import { ProfileScreen } from './src/screens/ProfileScreen'
 import { MoreScreen } from './src/screens/MoreScreen'
 import { BottomTabs } from './src/components/BottomTabs'
-import { getCurrentAccount, signOut, updateAccount } from './src/services/auth'
+import { getCurrentAccount, signOut, updateAccount, updateAccountDetails } from './src/services/auth'
 import { applyDietPlan, buildMealGroups, loadAppData, retryAppDataSave, saveAppData, skipDietPlan } from './src/services/storage'
 import type { AppData, MainTab, UserAccount, UserProfile } from './src/types'
 import { palette, useAppTheme } from './src/theme'
@@ -96,7 +96,7 @@ function AuthenticatedApp({ account, data, onChangeAccount, onChangeData, onLogo
   let screen
   if (tab === 'plan') screen = <PlanScreen data={data} groups={groups} theme={theme} onChangeData={onChangeData} />
   else if (tab === 'progress') screen = <ProgressScreen data={data} groups={groups} theme={theme} onChangeData={onChangeData} />
-  else if (tab === 'profile') screen = <ProfileScreen data={data} theme={theme} onSave={(profile) => void saveProfile(profile)} />
+  else if (tab === 'profile') screen = <ProfileScreen account={account} data={data} theme={theme} onSave={(profile) => void saveProfile(profile)} onAccountUpdate={async (input) => { const next = await updateAccountDetails(account.id, input); onChangeAccount(next); return next }} />
   else if (tab === 'more') screen = <MoreScreen account={account} data={data} theme={theme} onChangeAccount={onChangeAccount} onChangeData={onChangeData} onReplacePlan={() => setReplacingPlan(true)} onLogout={onLogout} />
   else screen = <TodayScreen data={data} groups={groups} theme={theme} onChangeData={onChangeData} onOpenPlan={() => setTab('plan')} />
 

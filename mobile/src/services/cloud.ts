@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store'
 import type { VideoSource } from 'expo-video'
 import { createClient } from '@supabase/supabase-js'
-import type { UserAccount } from '../types'
+import type { AccountUpdateInput, UserAccount } from '../types'
 
 const defaultSupabaseUrl = 'https://wxyrmynixsojofxtpfqi.supabase.co'
 const defaultPublishableKey = 'sb_publishable_hJ0TwMjeHZq9pZ0zZlfeHg_tdUNQi8f'
@@ -72,7 +72,7 @@ export async function cloudRequestEmailCode(identifier: string) { return request
 export async function cloudEmailReset(identifier: string, code: string, password: string) { return remember(await request<CloudResponse>('/v1/recovery/reset', { method: 'POST', body: JSON.stringify({ identifier, code, password }) })) }
 export async function loadCloudState() { if (!baseUrl || !await getToken()) return null; try { return await request<CloudState>('/v1/state') } catch { return null } }
 export async function saveCloudState(state: Record<string, unknown>) { if (!baseUrl || !await getToken()) return null; return request<CloudState>('/v1/state', { method: 'PATCH', body: JSON.stringify({ state }) }) }
-export async function updateCloudAccount(displayName: string) { if (!baseUrl || !await getToken()) return null; return request<{ account: UserAccount }>('/v1/account', { method: 'PATCH', body: JSON.stringify({ displayName }) }) }
+export async function updateCloudAccount(input: Partial<AccountUpdateInput>) { if (!baseUrl || !await getToken()) return null; return request<{ account: UserAccount; passwordChanged?: boolean }>('/v1/account', { method: 'PATCH', body: JSON.stringify(input) }) }
 export async function listCloudTrainingVideos() {
   if (!baseUrl || !await getToken()) throw new Error('Sign in to your cloud account to load training videos.')
   return request<{ videos: CloudTrainingVideo[] }>('/v1/training/videos')

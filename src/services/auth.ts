@@ -1,4 +1,4 @@
-import type { ImportedDietPlan, UserAccount } from '../types'
+import type { AccountUpdateInput, ImportedDietPlan, UserAccount } from '../types'
 import { sendWelcomeEmail } from './recoveryEmail'
 import { cloudLogin, cloudLogout, cloudOfflineReset, cloudRegister, isCloudConfigured, saveCloudState, updateCloudAccount } from './cloud'
 
@@ -209,7 +209,7 @@ export function updateAccount(accountId: string, patch: Partial<Pick<UserAccount
     if (!current || current.id !== accountId) throw new Error('Account not found.')
     const next = { ...current, ...patch }
     saveCloudAccount(next)
-    if (patch.displayName) void updateCloudAccount(patch.displayName)
+    if (patch.displayName) void updateCloudAccount({ displayName: patch.displayName })
     if ('dietPlan' in patch || 'planSkippedAt' in patch) void saveCloudState({ dietPlan: patch.dietPlan ?? null, planSkippedAt: patch.planSkippedAt ?? null })
     return next
   }
@@ -219,6 +219,46 @@ export function updateAccount(accountId: string, patch: Partial<Pick<UserAccount
   accounts[index] = { ...accounts[index], ...patch }
   saveAccounts(accounts)
   return publicAccount(accounts[index])
+}
+
+export async function updateAccountDetails(accountId: string, input: AccountUpdateInput) {
+  const displayName = input.displayName.trim()
+  const username = input.username.trim().toLowerCase()
+  const email = input.email.trim().toLowerCase()
+  if (displayName.length < 2) throw new Error('Display name must contain at least two characters.')
+  if (!/^[a-z0-9._-]{3,24}$/.test(username)) throw new Error('Username must be 3–24 characters using letters, numbers, dots, dashes, or underscores.')
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new Error('Enter a valid email address.')
+  if (input.newPassword && input.newPassword.length < 8) throw new Error('New password must contain at least 8 characters.')
+
+  if (isCloudConfigured()) {
+    const current = getCurrentAccount()
+    if (!current || current.id !== accountId) throw new Error('Account not found.')
+    const response = await updateCloudAccount({ ...input, displayName, username, email })
+    if (!response) throw new Error('Could not update this cloud account.')
+    const next = cloudAccountWithState(response.account, { dietPlan: current.dietPlan, planSkippedAt: current.planSkippedAt })
+    saveCloudAccount(next)
+    return next
+  }
+
+  const accounts = loadAccounts()
+  const index = accounts.findIndex((account) => account.id === accountId)
+  if (index < 0) throw new Error('Account not found.')
+  const current = accounts[index]
+  const sensitiveChange = username !== current.username || email !== current.email || Boolean(input.newPassword)
+  if (sensitiveChange) {
+    if (!input.currentPassword) throw new Error('Enter your current password to save account changes.')
+    if (await hashSecret(input.currentPassword, current.passwordSalt) !== current.passwordHash) throw new Error('Current password is incorrect.')
+  }
+  if (accounts.some((account) => account.id !== accountId && account.username === username)) throw new Error('That username is already in use.')
+  if (accounts.some((account) => account.id !== accountId && account.email === email)) throw new Error('That email is already connected to an account.')
+  let next: StoredAccount = { ...current, displayName, username, email }
+  if (input.newPassword) {
+    const passwordSalt = randomToken()
+    next = { ...next, passwordSalt, passwordHash: await hashSecret(input.newPassword, passwordSalt) }
+  }
+  accounts[index] = next
+  saveAccounts(accounts)
+  return publicAccount(next)
 }
 
 export function saveDietPlan(accountId: string, dietPlan: ImportedDietPlan) {

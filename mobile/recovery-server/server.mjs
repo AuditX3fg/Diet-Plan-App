@@ -374,7 +374,29 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === 'PATCH' && url.pathname === '/v1/account') {
       const session = requireSession(request)
-      return json(response, 200, { account: updateUser(session.userId, body) })
+      const current = publicAccount(session.userId)
+      const displayName = String(body.displayName ?? current?.displayName ?? '').trim().slice(0, 100)
+      const username = body.username === undefined ? current?.username : normalize(body.username)
+      const email = body.email === undefined ? current?.email : normalize(body.email)
+      const newPassword = String(body.newPassword || '')
+      const usernameChanged = username !== current?.username
+      const emailChanged = email !== current?.email
+      const passwordChanged = Boolean(newPassword)
+      if (displayName.length < 2) throw new HttpError(400, 'Display name must contain at least two characters.')
+      if (!/^[a-z0-9._-]{3,24}$/.test(username)) throw new HttpError(400, 'Username must be 3–24 characters using letters, numbers, dots, dashes, or underscores.')
+      if (!isEmail(email)) throw new HttpError(400, 'Enter a valid email address.')
+      if (newPassword && (newPassword.length < 8 || newPassword.length > 200)) throw new HttpError(400, 'New password must contain at least 8 characters.')
+      if (usernameChanged || emailChanged || passwordChanged) {
+        const verified = verifyPassword(current.username, String(body.currentPassword || ''))
+        if (!verified || verified.id !== session.userId) throw new HttpError(401, 'Current password is incorrect.')
+      }
+      let account
+      try { account = updateUser(session.userId, { displayName, username, email, newPassword }, session.token) }
+      catch (error) {
+        if (String(error?.message).includes('UNIQUE')) throw new HttpError(409, 'That username or email is already connected to an account.')
+        throw error
+      }
+      return json(response, 200, { account, usernameChanged, emailChanged, passwordChanged })
     }
     throw new HttpError(404, 'Not found.')
   } catch (error) {

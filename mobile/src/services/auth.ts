@@ -4,7 +4,7 @@ import * as SecureStore from 'expo-secure-store'
 import { pbkdf2Async } from '@noble/hashes/pbkdf2.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
-import type { UserAccount } from '../types'
+import type { AccountUpdateInput, UserAccount } from '../types'
 import { registerRecoveryEmail, requestRecoveryEmail, verifyRecoveryEmail } from './recoveryEmail'
 import { cloudEmailReset, cloudLogin, cloudLogout, cloudOfflineReset, cloudRegister, cloudRequestEmailCode, isCloudConfigured, updateCloudAccount } from './cloud'
 
@@ -240,7 +240,7 @@ export async function updateAccount(accountId: string, displayName: string) {
   const index = accounts.findIndex((item) => item.id === accountId)
   if (index < 0) throw new Error('Account not found.')
   if (isCloudConfigured()) {
-    const response = await updateCloudAccount(displayName)
+    const response = await updateCloudAccount({ displayName })
     if (!response) throw new Error('Could not update this cloud account.')
     accounts[index] = response.account
     await saveAccounts(accounts)
@@ -249,6 +249,42 @@ export async function updateAccount(accountId: string, displayName: string) {
   accounts[index] = { ...accounts[index], displayName: displayName.trim() || accounts[index].displayName }
   await saveAccounts(accounts)
   return accounts[index]
+}
+
+export async function updateAccountDetails(accountId: string, input: AccountUpdateInput) {
+  const displayName = input.displayName.trim()
+  const username = input.username.trim().toLowerCase()
+  const email = normalizeEmail(input.email)
+  if (displayName.length < 2) throw new Error('Display name must contain at least two characters.')
+  if (!/^[a-z0-9._-]{3,24}$/.test(username)) throw new Error('Use 3–24 letters, numbers, dots, dashes, or underscores.')
+  if (!validEmail(email)) throw new Error('Enter a valid email address.')
+  if (input.newPassword && input.newPassword.length < 8) throw new Error('New password must contain at least 8 characters.')
+  const accounts = await loadAccounts()
+  const index = accounts.findIndex((item) => item.id === accountId)
+  if (index < 0) throw new Error('Account not found.')
+
+  if (isCloudConfigured()) {
+    const response = await updateCloudAccount({ ...input, displayName, username, email })
+    if (!response) throw new Error('Could not update this cloud account.')
+    accounts[index] = response.account
+    await saveAccounts(accounts)
+    return response.account
+  }
+
+  const current = accounts[index]
+  const sensitiveChange = username !== current.username || email !== current.email || Boolean(input.newPassword)
+  if (sensitiveChange) {
+    if (!input.currentPassword) throw new Error('Enter your current password to save account changes.')
+    const stored = await getSecret(passwordKey(accountId))
+    if (!stored || !await verifySecret(input.currentPassword, JSON.parse(stored) as SecretRecord)) throw new Error('Current password is incorrect.')
+  }
+  if (accounts.some((item) => item.id !== accountId && item.username === username)) throw new Error('That username is already in use.')
+  if (accounts.some((item) => item.id !== accountId && item.email === email)) throw new Error('That email is already connected to an account.')
+  const next = { ...current, displayName, username, email }
+  if (input.newPassword) await setSecret(passwordKey(accountId), JSON.stringify(await createSecretRecord(input.newPassword)))
+  accounts[index] = next
+  await saveAccounts(accounts)
+  return next
 }
 
 export async function addRecoveryEmail(accountId: string, emailInput: string) {

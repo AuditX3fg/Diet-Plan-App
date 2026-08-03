@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { AppTheme } from '../theme'
 import { palette } from '../theme'
-import type { ActivityLevel, AppData, HealthGoal, UserProfile } from '../types'
+import type { AccountUpdateInput, ActivityLevel, AppData, HealthGoal, UserAccount, UserProfile } from '../types'
 import { Card, FormField, MetricChip, PrimaryButton, ScreenScroll, SectionHeader } from '../components/ui'
 import { calculateHealthMetrics } from '../utils/nutrition'
 import type { HealthProfileIssue } from '../utils/nutrition'
@@ -35,12 +35,21 @@ const issueLabels: Record<HealthProfileIssue, { en: string; ar: string }> = {
   targetFat: { en: 'Fat must be between 20 and 200 g.', ar: 'الدهون يجب أن تكون بين ٢٠ و٢٠٠ غ.' },
 }
 
-export function ProfileScreen({ data, theme, onSave }: { data: AppData; theme: AppTheme; onSave: (profile: UserProfile) => void }) {
+export function ProfileScreen({ account, data, theme, onSave, onAccountUpdate }: { account: UserAccount; data: AppData; theme: AppTheme; onSave: (profile: UserProfile) => void; onAccountUpdate: (input: AccountUpdateInput) => Promise<UserAccount> }) {
   const [draft, setDraft] = useState(data.profile)
+  const [username, setUsername] = useState(account.username)
+  const [email, setEmail] = useState(account.email ?? '')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [accountBusy, setAccountBusy] = useState(false)
+  const [accountError, setAccountError] = useState('')
+  const [accountSaved, setAccountSaved] = useState(false)
   const language = data.language
   const metrics = calculateHealthMetrics(draft)
   const profileIsValid = metrics.profileIsValid && draft.name.trim().length >= 2
   useEffect(() => setDraft(data.profile), [data.profile])
+  useEffect(() => { setUsername(account.username); setEmail(account.email ?? '') }, [account.email, account.username])
 
   function numberField(key: keyof UserProfile, value: string) {
     setDraft((current) => ({ ...current, [key]: Math.max(0, Number(value) || 0) }))
@@ -50,10 +59,52 @@ export function ProfileScreen({ data, theme, onSave }: { data: AppData; theme: A
     setDraft((current) => ({ ...current, targetCalories: metrics.calories, targetProtein: metrics.protein, targetCarbs: metrics.carbs, targetFat: metrics.fat }))
   }
 
+  async function saveAccount() {
+    setAccountError('')
+    setAccountSaved(false)
+    const sensitiveChange = username.trim().toLowerCase() !== account.username || email.trim().toLowerCase() !== (account.email ?? '') || Boolean(newPassword)
+    if (newPassword !== confirmPassword) {
+      setAccountError(tr(language, 'New passwords do not match.', 'كلمتا المرور الجديدتان غير متطابقتين.'))
+      return
+    }
+    if (sensitiveChange && !currentPassword) {
+      setAccountError(tr(language, 'Enter your current password to save sensitive changes.', 'أدخل كلمة المرور الحالية لحفظ التغييرات الحساسة.'))
+      return
+    }
+    setAccountBusy(true)
+    try {
+      const next = await onAccountUpdate({ displayName: draft.name, username, email, currentPassword, newPassword: newPassword || undefined })
+      setUsername(next.username)
+      setEmail(next.email ?? '')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setAccountSaved(true)
+    } catch (error) {
+      setAccountError(error instanceof Error ? error.message : tr(language, 'Could not update the account.', 'تعذر تحديث الحساب.'))
+    } finally {
+      setAccountBusy(false)
+    }
+  }
+
   return (
     <ScreenScroll theme={theme}>
       <SectionHeader eyebrow={tr(language, 'PERSONAL PROFILE', 'ملفك الشخصي')} title={tr(language, 'Your body, your targets', 'جسمك وأهدافك')} caption={tr(language, 'Edit your profile or calculate a safe planning estimate.', 'عدّل ملفك أو احسب تقديراً آمناً للخطة.')} theme={theme} />
       <Card theme={theme} style={styles.identityCard}><View style={[styles.largeAvatar, { backgroundColor: theme.primarySoft }]}><Text style={[styles.largeAvatarText, { color: theme.primary }]}>{draft.name[0]?.toUpperCase() || 'U'}</Text></View><View style={styles.flex}><Text style={[styles.identityName, { color: theme.text }]}>{draft.name}</Text><Text style={[styles.identityCaption, { color: theme.muted }]}>{tr(language, `${draft.goalWeeks}-week ${draft.goal} plan`, `خطة ${draft.goalWeeks} أسبوعاً`)}</Text></View></Card>
+
+      <SectionHeader eyebrow={tr(language, 'ACCOUNT & SECURITY', 'الحساب والأمان')} title={tr(language, 'Sign-in information', 'بيانات تسجيل الدخول')} caption={tr(language, 'Change your username, email, or password securely.', 'غيّر اسم المستخدم أو البريد أو كلمة المرور بأمان.')} theme={theme} />
+      <Card theme={theme} style={styles.formCard}>
+        <FormField label={tr(language, 'Username', 'اسم المستخدم')} value={username} onChangeText={(value) => { setUsername(value); setAccountSaved(false) }} autoCapitalize="none" autoCorrect={false} maxLength={24} theme={theme} rightToLeft={false} />
+        <FormField label={tr(language, 'Email address', 'البريد الإلكتروني')} value={email} onChangeText={(value) => { setEmail(value); setAccountSaved(false) }} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" theme={theme} rightToLeft={false} />
+        <View style={[styles.securityDivider, { backgroundColor: theme.line }]} />
+        <FormField label={tr(language, 'Current password', 'كلمة المرور الحالية')} value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} textContentType="password" theme={theme} />
+        <FormField label={tr(language, 'New password (optional)', 'كلمة المرور الجديدة (اختياري)')} value={newPassword} onChangeText={(value) => { setNewPassword(value); setAccountSaved(false) }} secureTextEntry autoCapitalize="none" autoCorrect={false} textContentType="newPassword" theme={theme} />
+        <FormField label={tr(language, 'Confirm new password', 'تأكيد كلمة المرور الجديدة')} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} textContentType="newPassword" theme={theme} />
+        <Text style={[styles.securityHint, { color: theme.muted }]}>{tr(language, 'Your current password is required when username, email, or password changes.', 'كلمة المرور الحالية مطلوبة عند تغيير اسم المستخدم أو البريد أو كلمة المرور.')}</Text>
+        {accountError ? <View style={[styles.accountMessage, { backgroundColor: theme.dark ? '#3b2927' : '#fff0ed', borderColor: palette.danger }]}><Text style={styles.accountError}>{accountError}</Text></View> : null}
+        {accountSaved ? <View style={[styles.accountMessage, { backgroundColor: theme.primarySoft, borderColor: theme.primary }]}><Text style={[styles.accountSuccess, { color: theme.primary }]}>{tr(language, 'Account information updated.', 'تم تحديث بيانات الحساب.')}</Text></View> : null}
+        <PrimaryButton label={tr(language, 'Save account details', 'حفظ بيانات الحساب')} icon="✓" busy={accountBusy} disabled={draft.name.trim().length < 2} onPress={() => void saveAccount()} theme={theme} />
+      </Card>
 
       <SectionHeader eyebrow={tr(language, 'BASICS', 'الأساسيات')} title={tr(language, 'Profile details', 'بيانات الملف')} theme={theme} />
       <Card theme={theme} style={styles.formCard}>
@@ -96,6 +147,11 @@ const styles = StyleSheet.create({
   identityName: { fontSize: 18, fontWeight: '900' },
   identityCaption: { marginTop: 3, fontSize: 11 },
   formCard: { gap: 14 },
+  securityDivider: { height: 1, marginVertical: 2 },
+  securityHint: { fontSize: 11, lineHeight: 17 },
+  accountMessage: { minHeight: 42, paddingHorizontal: 13, paddingVertical: 10, justifyContent: 'center', borderWidth: 1, borderRadius: 13 },
+  accountError: { color: palette.danger, fontSize: 12, lineHeight: 17, fontWeight: '700' },
+  accountSuccess: { fontSize: 12, lineHeight: 17, fontWeight: '800' },
   twoColumns: { flexDirection: 'row', gap: 10 },
   choiceLabel: { fontSize: 10, fontWeight: '900' },
   choiceRow: { flexDirection: 'row', gap: 8 },

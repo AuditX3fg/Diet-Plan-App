@@ -14,7 +14,7 @@ import { SettingsPage } from './pages/SettingsPage'
 import { TodayPage } from './pages/TodayPage'
 import { WeekPage } from './pages/WeekPage'
 import { WorkoutsPage } from './pages/WorkoutsPage'
-import { accountStorageKey, getCurrentAccount, saveDietPlan, signOut, subscribeToAuthChanges, updateAccount } from './services/auth'
+import { accountStorageKey, getCurrentAccount, saveDietPlan, signOut, subscribeToAuthChanges, updateAccount, updateAccountDetails } from './services/auth'
 import { flushAutosave, pauseAutosave, pendingAutosaveState, queueAutosave } from './services/autosave'
 import { buildMealGroups } from './services/dietPlan'
 import { loadCloudState } from './services/cloud'
@@ -397,7 +397,7 @@ function DietApp({ account, onAccountChange, onLogout }: DietAppProps) {
       page = <ProgressPage days={days} weeklyTotals={weeklyTotals} profile={profile} weightEntries={weightEntries} onAddWeight={addWeight} />
       break
     case 'profile':
-      page = <ProfilePage profile={profile} onChange={(next) => { setProfile(next); if (next.name.trim().length >= 2 && next.name.trim() !== account.displayName) onAccountChange(updateAccount(account.id, { displayName: next.name.trim() })) }} />
+      page = <ProfilePage account={account} profile={profile} onChange={(next) => { setProfile(next); if (next.name.trim().length >= 2 && next.name.trim() !== account.displayName) onAccountChange(updateAccount(account.id, { displayName: next.name.trim() })) }} onAccountUpdate={async (input) => { const next = await updateAccountDetails(account.id, input); onAccountChange(next); return next }} />
       break
     case 'settings':
       page = <SettingsPage profile={profile} language={language} theme={theme} account={account} reminders={reminders} notificationPermission={notificationPermission} onProfileChange={(next) => { setProfile(next); if (next.name.trim().length >= 2 && next.name.trim() !== account.displayName) onAccountChange(updateAccount(account.id, { displayName: next.name.trim() })) }} onLanguageChange={setLanguage} onThemeChange={setTheme} onReminderChange={setReminders} onEnableNotifications={enableNotifications} onTestNotification={() => sendReminderNotification(language === 'ar' ? '💧 تذكير تجريبي' : '💧 Test reminder', language === 'ar' ? 'تعمل إشعارات توازن بشكل صحيح.' : 'Tawazon notifications are working correctly.', 'tawazon-test')} onOpenPlanImport={() => setImportingPlan(true)} onLogout={() => void logoutSafely()} />

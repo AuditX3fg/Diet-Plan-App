@@ -83,6 +83,14 @@ export interface UserAccount {
   createdAt: string
 }
 
+export interface AccountUpdateInput {
+  displayName: string
+  username: string
+  email: string
+  currentPassword?: string
+  newPassword?: string
+}
+
 export interface UserProfile {
   name: string
   targetCalories: number

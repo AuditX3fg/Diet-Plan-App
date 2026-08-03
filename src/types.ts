@@ -155,3 +155,11 @@ export interface UserAccount {
   dietPlan?: ImportedDietPlan
   planSkippedAt?: string
 }
+
+export interface AccountUpdateInput {
+  displayName: string
+  username: string
+  email: string
+  currentPassword?: string
+  newPassword?: string
+}
