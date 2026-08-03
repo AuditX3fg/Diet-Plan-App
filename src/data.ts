@@ -87,7 +87,7 @@ function options(group: keyof typeof palettes, rows: RawOption[]) {
     fat: Math.max(2, Math.round((calories - protein * 4 - carbs * 4) / 9)),
     color,
     glyph,
-    imageUrl: `/meal-images/items/${id}.webp`,
+    imageUrl: `${import.meta.env.BASE_URL}meal-images/items/${id}.webp`,
     recipeUrl,
   }))
 }

@@ -162,7 +162,7 @@ export function buildMealGroups(plan?: ImportedDietPlan): MealGroup[] {
         fat: imported.fat,
         color: group.options[0].color,
         glyph: group.options[0].glyph,
-        imageUrl: `/meal-images/${group.id}.svg`,
+        imageUrl: `${import.meta.env.BASE_URL}meal-images/${group.id}.svg`,
         isImported: true,
       }, ...group.options],
     }
