@@ -9,6 +9,26 @@ const sectionConfig: Array<{ id: DietMealId; title: string; titleAr: string; sha
   { id: 'dinner', title: 'Dinner from PDF', titleAr: 'عشاء من ملف PDF', share: 0.25, pattern: /^(?:dinner|meal\s*4|العشاء|عشاء|الوجبة\s*الرابعة|وجبة\s*4)\s*[:\-–—]?\s*(.*)$/i, hints: /fish|tuna|salad|soup|shrimp|سمك|تونا|سلطة|شوربة|قريدس/i },
 ]
 
+const urlPattern = /https?:\/\/[^\s<>{}\[\]"']+/gi
+
+function safeExternalUrl(value: unknown) {
+  const candidate = String(value ?? '').trim().replace(/&amp;/gi, '&').replace(/[),.;:!?]+$/, '')
+  try {
+    const parsed = new URL(candidate)
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.toString() : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function linksIn(value: string) {
+  return [...value.matchAll(urlPattern)].map((match) => safeExternalUrl(match[0])).filter((url): url is string => Boolean(url))
+}
+
+function withoutLinks(value: string) {
+  return tidyLine(value.replace(urlPattern, '').replace(/^(?:watch|video|meal\s+video|شاهد|فيديو)(?:\s+(?:video|الفيديو))?\s*[:\-–—]?\s*$/i, ''))
+}
+
 function tidyLine(line: string) {
   return line.replace(/^[\s•·▪◦*–—-]+/, '').replace(/\s+/g, ' ').trim()
 }
@@ -45,7 +65,7 @@ function splitIntoLines(text: string) {
   return withHeaders.split(/\r?\n/).map(tidyLine).filter((line) => line.length > 1)
 }
 
-function extractSections(lines: string[], daily: { calories: number; protein: number; carbs: number; fat: number }) {
+function extractSections(lines: string[], daily: { calories: number; protein: number; carbs: number; fat: number }, documentLinks: string[] = []) {
   const collected: Record<DietMealId, string[]> = { breakfast: [], snack: [], lunch: [], dinner: [] }
   let current: DietMealId | null = null
 
@@ -77,8 +97,10 @@ function extractSections(lines: string[], daily: { calories: number; protein: nu
     }
   }
 
-  return sectionConfig.map((config): ImportedDietMeal => {
-    const items = [...new Set(collected[config.id].map(tidyLine).filter(Boolean))].slice(0, 12)
+  const meals = sectionConfig.map((config): ImportedDietMeal => {
+    const sectionLines = collected[config.id].map(tidyLine).filter(Boolean)
+    const videoUrl = sectionLines.flatMap(linksIn)[0]
+    const items = [...new Set(sectionLines.map(withoutLinks).filter(Boolean))].slice(0, 12)
     const explicitCalories = caloriesInLines(items)
     const explicitProtein = macroInLines(items, 'protein|بروتين')
     const explicitCarbs = macroInLines(items, 'carbs?|carbohydrates?|كربوهيدرات|كارب')
@@ -92,8 +114,16 @@ function extractSections(lines: string[], daily: { calories: number; protein: nu
       protein: Math.round(explicitProtein || daily.protein * config.share),
       carbs: Math.round(explicitCarbs || daily.carbs * config.share),
       fat: Math.round(explicitFat || daily.fat * config.share),
+      videoUrl,
     }
   })
+
+  const assigned = new Set(meals.map((meal) => meal.videoUrl).filter(Boolean))
+  const remaining = [...new Set(documentLinks.map(safeExternalUrl).filter((url): url is string => Boolean(url) && !assigned.has(url)))]
+  meals.forEach((meal) => {
+    if (!meal.videoUrl && remaining.length) meal.videoUrl = remaining.shift()
+  })
+  return meals
 }
 
 export async function parseDietPlanPdf(file: File): Promise<ImportedDietPlan> {
@@ -104,13 +134,36 @@ export async function parseDietPlanPdf(file: File): Promise<ImportedDietPlan> {
   GlobalWorkerOptions.workerSrc = workerUrl
   const pdf = await getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise
   const pageTexts: string[] = []
+  const documentLinks: string[] = []
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber)
     const content = await page.getTextContent()
+    const entries = content.items.filter((item) => 'str' in item && item.str.trim())
+    const inserts = new Map<number, string[]>()
+    const annotations = await page.getAnnotations({ intent: 'display' })
+    annotations.forEach((annotation) => {
+      const link = safeExternalUrl(annotation.url ?? annotation.unsafeUrl)
+      if (!link || documentLinks.includes(link)) return
+      documentLinks.push(link)
+      const centerY = Array.isArray(annotation.rect) ? (Number(annotation.rect[1]) + Number(annotation.rect[3])) / 2 : Number.NaN
+      let nearestIndex = entries.length - 1
+      let nearestDistance = Number.POSITIVE_INFINITY
+      if (Number.isFinite(centerY)) entries.forEach((entry, index) => {
+        const y = 'transform' in entry ? Number(entry.transform[5]) : Number.NaN
+        const distance = Math.abs(y - centerY)
+        if (Number.isFinite(distance) && distance < nearestDistance) {
+          nearestIndex = index
+          nearestDistance = distance
+        }
+      })
+      if (nearestIndex >= 0) inserts.set(nearestIndex, [...(inserts.get(nearestIndex) ?? []), link])
+    })
     let pageText = ''
-    content.items.forEach((item) => {
-      if (!('str' in item) || !item.str.trim()) return
+    entries.forEach((item, index) => {
+      if (!('str' in item)) return
       pageText += `${item.str}${item.hasEOL ? '\n' : ' '}`
+      const linked = inserts.get(index)
+      if (linked?.length) pageText += `\n${linked.join('\n')}\n`
     })
     pageTexts.push(pageText.trim())
   }
@@ -135,7 +188,7 @@ export async function parseDietPlanPdf(file: File): Promise<ImportedDietPlan> {
     protein,
     carbs,
     fat,
-    meals: extractSections(lines, daily),
+    meals: extractSections(lines, daily, documentLinks),
     notes,
   }
 }
@@ -164,6 +217,7 @@ export function buildMealGroups(plan?: ImportedDietPlan): MealGroup[] {
         glyph: group.options[0].glyph,
         imageUrl: `${import.meta.env.BASE_URL}meal-images/${group.id}.svg`,
         isImported: true,
+        videoUrl: safeExternalUrl(imported.videoUrl),
       }, ...group.options],
     }
   })

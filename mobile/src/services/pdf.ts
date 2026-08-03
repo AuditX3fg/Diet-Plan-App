@@ -15,6 +15,21 @@ const MAX_STREAM_BYTES = 2 * 1024 * 1024
 const MAX_EXTRACTED_CHARACTERS = 250_000
 const MAX_TEXT_BLOCKS_PER_STREAM = 2_000
 const MAX_LITERAL_CHARACTERS = 8_192
+const urlPattern = /https?:\/\/[^\s<>{}\[\]"']+/gi
+
+function safeExternalUrl(value: unknown) {
+  const candidate = String(value ?? '').trim().replace(/&amp;/gi, '&').replace(/[),.;:!?]+$/, '')
+  try {
+    const parsed = new URL(candidate)
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.toString() : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function linksIn(value: string) {
+  return [...value.matchAll(urlPattern)].map((match) => safeExternalUrl(match[0])).filter((url): url is string => Boolean(url))
+}
 
 function bytesToBinary(bytes: Uint8Array) {
   let output = ''
@@ -174,6 +189,17 @@ function sanitizeExtractedText(value: string) {
 
 function extractPdfText(bytes: Uint8Array) {
   const binary = bytesToBinary(bytes)
+  const links: string[] = []
+  let linkCursor = 0
+  while (linkCursor < binary.length && links.length < 100) {
+    const marker = binary.indexOf('/URI', linkCursor)
+    if (marker < 0) break
+    const nearby = binary.slice(marker + 4, Math.min(binary.length, marker + 4 + MAX_LITERAL_CHARACTERS * 2 + 32))
+    const candidate = literalStrings(nearby)[0] ?? hexStrings(nearby)[0]
+    const link = safeExternalUrl(candidate)
+    if (link && !links.includes(link)) links.push(link)
+    linkCursor = marker + 4
+  }
   const streams: string[] = []
   let cursor = 0
   let streamCount = 0
@@ -216,11 +242,16 @@ function extractPdfText(bytes: Uint8Array) {
   return {
     text: sanitizeExtractedText(streams.join('\n')),
     pageCount: countPdfPages(binary),
+    links,
   }
 }
 
 function tidyLine(line: string) {
   return line.replace(/^[\s•·▪◦*–—-]+/, '').replace(/\s+/g, ' ').trim()
+}
+
+function withoutLinks(value: string) {
+  return tidyLine(value.replace(urlPattern, '').replace(/^(?:watch|video|meal\s+video|شاهد|فيديو)(?:\s+(?:video|الفيديو))?\s*[:\-–—]?\s*$/i, ''))
 }
 
 function splitIntoLines(text: string) {
@@ -266,7 +297,7 @@ function macroIn(lines: string[], label: string) {
   return lines.reduce((sum, line) => sum + Number(line.match(new RegExp(`([0-9]{1,3}(?:\\.[0-9]+)?)\\s*(?:g|grams?|غم|غ)\\s*(?:${label})`, 'i'))?.[1] ?? 0), 0)
 }
 
-function extractMeals(lines: string[], daily: { calories: number; protein: number; carbs: number; fat: number }): ImportedDietMeal[] {
+function extractMeals(lines: string[], daily: { calories: number; protein: number; carbs: number; fat: number }, documentLinks: string[] = []): ImportedDietMeal[] {
   const collected: Record<DietMealId, string[]> = { breakfast: [], snack: [], lunch: [], dinner: [] }
   let current: DietMealId | null = null
   lines.forEach((line) => {
@@ -291,8 +322,10 @@ function extractMeals(lines: string[], daily: { calories: number; protein: numbe
     })
   }
 
-  return sectionConfig.map((config) => {
-    const items = [...new Set(collected[config.id].map(tidyLine).filter(Boolean))].slice(0, 10)
+  const meals = sectionConfig.map((config): ImportedDietMeal => {
+    const sectionLines = collected[config.id].map(tidyLine).filter(Boolean)
+    const videoUrl = sectionLines.flatMap(linksIn)[0]
+    const items = [...new Set(sectionLines.map(withoutLinks).filter(Boolean))].slice(0, 10)
     return {
       id: config.id,
       title: config.title,
@@ -301,20 +334,27 @@ function extractMeals(lines: string[], daily: { calories: number; protein: numbe
       protein: Math.round(macroIn(items, 'protein|بروتين') || daily.protein * config.share),
       carbs: Math.round(macroIn(items, 'carbs?|carbohydrates?|كربوهيدرات|كارب') || daily.carbs * config.share),
       fat: Math.round(macroIn(items, 'fat|دهون') || daily.fat * config.share),
+      videoUrl,
     }
   })
+  const assigned = new Set(meals.map((meal) => meal.videoUrl).filter(Boolean))
+  const remaining = [...new Set(documentLinks.map(safeExternalUrl).filter((url): url is string => Boolean(url) && !assigned.has(url)))]
+  meals.forEach((meal) => {
+    if (!meal.videoUrl && remaining.length) meal.videoUrl = remaining.shift()
+  })
+  return meals
 }
 
 export async function parseDietPlanPdf(asset: DocumentPickerAsset): Promise<ImportedDietPlan> {
   if (asset.size && asset.size > 10 * 1024 * 1024) throw new Error('The PDF must be smaller than 10 MB.')
   if (asset.mimeType && asset.mimeType !== 'application/pdf' && !asset.name.toLowerCase().endsWith('.pdf')) throw new Error('Choose a PDF file.')
   const bytes = await new File(asset.uri).bytes()
-  let extracted: { text: string; pageCount: number }
+  let extracted: { text: string; pageCount: number; links: string[] }
   let parserWarning: string | undefined
   try {
     extracted = extractPdfText(bytes)
   } catch {
-    extracted = { text: '', pageCount: 1 }
+    extracted = { text: '', pageCount: 1, links: [] }
     parserWarning = 'This PDF uses a structure the automatic reader could not decode. Enter the targets and meals manually before loading it.'
   }
   const text = extracted.text
@@ -339,7 +379,7 @@ export async function parseDietPlanPdf(asset: DocumentPickerAsset): Promise<Impo
     protein,
     carbs,
     fat,
-    meals: extractMeals(lines, daily),
+    meals: extractMeals(lines, daily, extracted.links),
     notes: lines.filter((line) => /note|avoid|allerg|instruction|ملاحظة|تجنب|حساسية|تعليمات/i.test(line)).slice(0, 6),
     warning: parserWarning ?? (readable ? undefined : 'This PDF may be scanned or use embedded fonts. Confirm the targets and meal text manually before loading it.'),
   }

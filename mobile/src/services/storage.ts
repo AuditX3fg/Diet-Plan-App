@@ -70,9 +70,20 @@ export function buildMealGroups(plan?: ImportedDietPlan): MealGroup[] {
         glyph: group.options[0].glyph,
         imageKey: importedImageKey(group.id, details),
         isImported: true,
+        videoUrl: safeExternalUrl(imported.videoUrl),
       }, ...group.options],
     }
   })
+}
+
+function safeExternalUrl(value: unknown) {
+  const candidate = String(value ?? '').trim().replace(/[),.;:!?]+$/, '')
+  try {
+    const parsed = new URL(candidate)
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.toString() : undefined
+  } catch {
+    return undefined
+  }
 }
 
 function initialData(account: UserAccount): AppData {

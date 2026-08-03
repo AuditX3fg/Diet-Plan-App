@@ -21,6 +21,7 @@ export interface MealOption {
   imageUrl?: string
   isImported?: boolean
   recipeUrl?: string
+  videoUrl?: string
 }
 
 export interface MealGroup {
@@ -117,6 +118,7 @@ export interface ImportedDietMeal {
   protein: number
   carbs: number
   fat: number
+  videoUrl?: string
 }
 
 export interface ImportedDietPlan {

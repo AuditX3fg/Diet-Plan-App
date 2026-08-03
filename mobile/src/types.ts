@@ -23,6 +23,7 @@ export interface MealOption {
   glyph: string
   imageKey?: string
   recipeUrl?: string
+  videoUrl?: string
   isImported?: boolean
 }
 
@@ -45,6 +46,7 @@ export interface ImportedDietMeal {
   protein: number
   carbs: number
   fat: number
+  videoUrl?: string
 }
 
 export interface ImportedDietPlan {

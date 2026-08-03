@@ -1,5 +1,5 @@
 import { useRef, useState, type DragEvent } from 'react'
-import { ArrowLeft, Check, FileText, FileUp, LoaderCircle, ShieldCheck, Sparkles, X } from 'lucide-react'
+import { ArrowLeft, Check, FileText, FileUp, LoaderCircle, PlayCircle, ShieldCheck, Sparkles, X } from 'lucide-react'
 import { parseDietPlanPdf } from '../services/dietPlan'
 import type { ImportedDietPlan, UserAccount } from '../types'
 
@@ -40,6 +40,13 @@ export function DietPlanImportPage({ account, onComplete, onSkip, onCancel }: Di
     if (!plan) return
     const number = Math.max(0, Number(value))
     setPlan({ ...plan, [key]: number })
+  }
+
+  function updateMealVideo(index: number, videoUrl: string) {
+    if (!plan) return
+    const meals = [...plan.meals]
+    meals[index] = { ...meals[index], videoUrl: videoUrl.trim() || undefined }
+    setPlan({ ...plan, meals })
   }
 
   return (
@@ -85,8 +92,8 @@ export function DietPlanImportPage({ account, onComplete, onSkip, onCancel }: Di
             </section>
 
             <section className="parsed-meals">
-              <div className="review-heading"><div><p className="auth-kicker">Meal structure</p><h2>Meals found in your PDF</h2></div><span>{plan.meals.filter((meal) => meal.items.length > 0).length} / 4 detected</span></div>
-              <div className="parsed-meal-grid">{plan.meals.map((meal) => <article key={meal.id}><span className={`parsed-meal-icon ${meal.id}`}>{meal.id === 'breakfast' ? '🍳' : meal.id === 'snack' ? '🥣' : meal.id === 'lunch' ? '🍗' : '🍽️'}</span><div><small>{meal.id}</small><b>{meal.title}</b><p>{meal.items.join(' · ') || 'No dedicated section detected; target values will use the standard catalogue.'}</p></div><em>{meal.calories} kcal</em></article>)}</div>
+              <div className="review-heading"><div><p className="auth-kicker">Meal structure</p><h2>Meals found in your PDF</h2></div><span><PlayCircle size={13} /> {plan.meals.filter((meal) => meal.videoUrl).length} video links detected</span></div>
+              <div className="parsed-meal-grid">{plan.meals.map((meal, index) => <article key={meal.id}><span className={`parsed-meal-icon ${meal.id}`}>{meal.id === 'breakfast' ? '🍳' : meal.id === 'snack' ? '🥣' : meal.id === 'lunch' ? '🍗' : '🍽️'}</span><div><small>{meal.id}</small><b>{meal.title}</b><p>{meal.items.join(' · ') || 'No dedicated section detected; target values will use the standard catalogue.'}</p><label className="parsed-video-field"><PlayCircle size={12} /><input type="url" inputMode="url" value={meal.videoUrl ?? ''} onChange={(event) => updateMealVideo(index, event.target.value)} placeholder="Meal video link" aria-label={`${meal.title} video link`} /></label></div><em>{meal.calories} kcal</em></article>)}</div>
             </section>
 
             {plan.notes.length > 0 && <section className="parsed-notes"><p className="auth-kicker">Notes detected</p>{plan.notes.map((note, index) => <span key={`${note}-${index}`}>{note}</span>)}</section>}

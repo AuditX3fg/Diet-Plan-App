@@ -56,7 +56,10 @@ export function PlanScreen({ data, groups, theme, onChangeData }: { data: AppDat
                 <Text numberOfLines={2} style={[styles.optionName, { color: theme.text }]}>{language === 'ar' ? option.name : option.nameEn}</Text>
                 <Text numberOfLines={2} style={[styles.optionDescription, { color: theme.muted }]}>{language === 'ar' ? option.description : option.descriptionEn}</Text>
                 <View style={styles.optionMacros}><Text style={{ color: theme.muted }}>P {option.protein}g</Text><Text style={{ color: theme.muted }}>C {option.carbs}g</Text><Text style={{ color: theme.muted }}>F {option.fat}g</Text></View>
-                {option.recipeUrl ? <Pressable onPress={() => Linking.openURL(option.recipeUrl!)}><Text style={[styles.recipeLink, { color: theme.primary }]}>{tr(language, 'Open recipe ↗', 'فتح الوصفة ↗')}</Text></Pressable> : <View style={styles.recipeSpacer} />}
+                {option.videoUrl || option.recipeUrl ? <View style={styles.resourceLinks}>
+                  {option.videoUrl ? <Pressable onPress={() => void Linking.openURL(option.videoUrl!)} style={[styles.videoLink, { backgroundColor: theme.primary }]}><Text style={styles.videoLinkText}>{tr(language, '▶ Watch meal video', '▶ شاهد فيديو الوجبة')}</Text></Pressable> : null}
+                  {option.recipeUrl ? <Pressable onPress={() => void Linking.openURL(option.recipeUrl!)}><Text style={[styles.recipeLink, { color: theme.primary }]}>{tr(language, 'Open recipe ↗', 'فتح الوصفة ↗')}</Text></Pressable> : null}
+                </View> : <View style={styles.recipeSpacer} />}
                 <View style={[styles.portionControl, { backgroundColor: selected ? theme.primarySoft : theme.surfaceAlt }]}>
                   <Pressable onPress={() => setPortion(group.id, option.id, portion - 0.25)} style={styles.portionButton}><Text style={[styles.portionButtonText, { color: selected ? theme.primary : theme.muted }]}>−</Text></Pressable>
                   <View style={styles.portionValue}><Text style={[styles.portionNumber, { color: theme.text }]}>{formatPortion(portion)}</Text><Text style={[styles.portionLabel, { color: theme.muted }]}>{tr(language, 'portion', 'حصة')}</Text></View>
@@ -103,6 +106,9 @@ const styles = StyleSheet.create({
   optionName: { minHeight: 40, fontSize: 15, lineHeight: 20, fontWeight: '900' },
   optionDescription: { minHeight: 34, fontSize: 11, lineHeight: 17 },
   optionMacros: { flexDirection: 'row', justifyContent: 'space-between', fontSize: 10 },
+  resourceLinks: { minHeight: 30, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  videoLink: { minHeight: 29, paddingHorizontal: 10, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  videoLinkText: { color: '#fff', fontSize: 9, fontWeight: '900' },
   recipeLink: { fontSize: 10, fontWeight: '900' },
   recipeSpacer: { height: 13 },
   portionControl: { marginTop: 'auto', height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

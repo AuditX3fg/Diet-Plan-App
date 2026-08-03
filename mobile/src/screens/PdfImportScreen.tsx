@@ -50,6 +50,13 @@ export function PdfImportScreen({ account, theme, existingPlan, onComplete, onSk
     setPlan({ ...plan, meals })
   }
 
+  function updateMealVideo(index: number, videoUrl: string) {
+    if (!plan) return
+    const meals = [...plan.meals]
+    meals[index] = { ...meals[index], videoUrl: videoUrl.trim() || undefined }
+    setPlan({ ...plan, meals })
+  }
+
   return (
     <ScreenScroll theme={theme} contentStyle={styles.content}>
       <View style={styles.topRow}><BrandMark size={50} />{onCancel ? <SecondaryButton label="Close" onPress={onCancel} compact theme={theme} /> : null}</View>
@@ -79,8 +86,8 @@ export function PdfImportScreen({ account, theme, existingPlan, onComplete, onSk
             <View style={styles.metricField}><FormField label="Fat (g)" value={String(plan.fat)} onChangeText={(value) => updateMetric('fat', value)} keyboardType="number-pad" theme={theme} /></View>
           </View>
 
-          <SectionHeader eyebrow="MEAL STRUCTURE" title="Meals found in the PDF" caption="Review the ingredients for each meal." theme={theme} />
-          {plan.meals.map((meal, index) => <Card key={meal.id} theme={theme} style={styles.mealReview}><View style={[styles.mealBadge, { backgroundColor: meal.id === 'breakfast' ? palette.amberSoft : meal.id === 'snack' ? palette.lilacSoft : meal.id === 'lunch' ? palette.coralSoft : palette.green100 }]}><Text style={styles.mealGlyph}>{meal.id === 'breakfast' ? '🍳' : meal.id === 'snack' ? '🥣' : meal.id === 'lunch' ? '🍗' : '🍽️'}</Text></View><View style={styles.flex}><Text style={[styles.mealName, { color: theme.text }]}>{meal.title}</Text><FormField label="Ingredients / instructions" value={meal.items.join(', ')} onChangeText={(value) => updateMeal(index, value)} placeholder="Enter this meal from your plan" multiline theme={theme} /></View><Text style={[styles.mealCalories, { color: theme.primary }]}>{meal.calories} kcal</Text></Card>)}
+          <SectionHeader eyebrow="MEAL STRUCTURE" title="Meals found in the PDF" caption={`${plan.meals.filter((meal) => meal.videoUrl).length} meal video links detected. Review or paste a missing link below.`} theme={theme} />
+          {plan.meals.map((meal, index) => <Card key={meal.id} theme={theme} style={styles.mealReview}><View style={[styles.mealBadge, { backgroundColor: meal.id === 'breakfast' ? palette.amberSoft : meal.id === 'snack' ? palette.lilacSoft : meal.id === 'lunch' ? palette.coralSoft : palette.green100 }]}><Text style={styles.mealGlyph}>{meal.id === 'breakfast' ? '🍳' : meal.id === 'snack' ? '🥣' : meal.id === 'lunch' ? '🍗' : '🍽️'}</Text></View><View style={styles.flex}><Text style={[styles.mealName, { color: theme.text }]}>{meal.title}</Text><FormField label="Ingredients / instructions" value={meal.items.join(', ')} onChangeText={(value) => updateMeal(index, value)} placeholder="Enter this meal from your plan" multiline theme={theme} /><FormField label="Meal video link" value={meal.videoUrl ?? ''} onChangeText={(value) => updateMealVideo(index, value)} placeholder="https://…" keyboardType="url" autoCorrect={false} theme={theme} /></View><Text style={[styles.mealCalories, { color: theme.primary }]}>{meal.calories} kcal</Text></Card>)}
 
           {plan.notes.length ? <Card theme={theme} style={styles.notesCard}><Text style={styles.notesTitle}>NOTES DETECTED</Text>{plan.notes.map((note, index) => <Text key={`${note}-${index}`} style={[styles.note, { color: theme.text }]}>• {note}</Text>)}</Card> : null}
           <PrimaryButton label="Load this plan into my account" icon="→" onPress={() => onComplete(plan)} theme={theme} />

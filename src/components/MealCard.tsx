@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Clock3, ExternalLink, Flame, Minus, Plus } from 'lucide-react'
+import { Check, ChevronDown, Clock3, ExternalLink, Flame, Minus, PlayCircle, Plus } from 'lucide-react'
 import type { MealGroup, MealSelection } from '../types'
 import { mealDescription, mealName, mealTitle, tr } from '../i18n'
 import { formatPortion, getMealItems, getMealTotals, toArabicNumber } from '../utils'
@@ -57,7 +57,10 @@ export function MealCard({ meal, selections, open, onToggle, onPortionChange }: 
                     <span className="option-check">{active ? <Check size={15} /> : <Plus size={15} />}</span>
                   </button>
                   <div className="food-option-footer">
-                    {option.recipeUrl ? <a className="recipe-link" href={option.recipeUrl} target="_blank" rel="noreferrer"><ExternalLink size={12} /> {tr('الوصفة', 'Recipe')}</a> : <span />}
+                    <span className="option-resource-links">
+                      {option.videoUrl ? <a className="meal-video-link" href={option.videoUrl} target="_blank" rel="noopener noreferrer"><PlayCircle size={13} /> {tr('شاهد الفيديو', 'Watch video')}</a> : null}
+                      {option.recipeUrl ? <a className="recipe-link" href={option.recipeUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={12} /> {tr('الوصفة', 'Recipe')}</a> : null}
+                    </span>
                     {active && (
                       <div className="portion-control" aria-label={tr(`حصة ${mealName(option)}`, `${mealName(option)} portion`)}>
                         <button onClick={() => onPortionChange(option.id, portion - 0.25)} aria-label={tr(`تقليل حصة ${mealName(option)}`, `Decrease ${mealName(option)} portion`)}><Minus size={13} /></button>
