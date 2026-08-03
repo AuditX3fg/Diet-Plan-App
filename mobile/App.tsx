@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, AppState, StyleSheet, Text, View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { AuthScreen } from './src/screens/AuthScreen'
@@ -11,7 +11,7 @@ import { ProfileScreen } from './src/screens/ProfileScreen'
 import { MoreScreen } from './src/screens/MoreScreen'
 import { BottomTabs } from './src/components/BottomTabs'
 import { getCurrentAccount, signOut, updateAccount } from './src/services/auth'
-import { applyDietPlan, buildMealGroups, loadAppData, saveAppData, skipDietPlan } from './src/services/storage'
+import { applyDietPlan, buildMealGroups, loadAppData, retryAppDataSave, saveAppData, skipDietPlan } from './src/services/storage'
 import type { AppData, MainTab, UserAccount, UserProfile } from './src/types'
 import { palette, useAppTheme } from './src/theme'
 
@@ -42,6 +42,7 @@ function AppRoot() {
   }
 
   async function logout() {
+    if (account && data) await saveAppData(account.id, data)
     await signOut()
     setAccount(null)
     setData(null)
@@ -72,8 +73,15 @@ function AuthenticatedApp({ account, data, onChangeAccount, onChangeData, onLogo
   const groups = useMemo(() => buildMealGroups(data.dietPlan), [data.dietPlan])
 
   useEffect(() => {
-    const timer = setTimeout(() => { void saveAppData(account.id, data) }, 140)
-    return () => clearTimeout(timer)
+    void saveAppData(account.id, data)
+  }, [account.id, data])
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void retryAppDataSave(account.id)
+      else void saveAppData(account.id, data)
+    })
+    return () => subscription.remove()
   }, [account.id, data])
 
   async function saveProfile(profile: UserProfile) {

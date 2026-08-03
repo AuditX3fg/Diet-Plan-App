@@ -5,6 +5,76 @@ import { buildWeekIds } from '../utils/nutrition'
 import { isCloudConfigured, loadCloudState, saveCloudState } from './cloud'
 
 const DATA_PREFIX = 'tawazon.mobile.data.v1.'
+const PENDING_PREFIX = 'tawazon.mobile.pending.v1.'
+const RETRY_DELAY_MS = 5_000
+
+interface PendingSave {
+  accountId: string
+  version: number
+  state: AppData
+}
+
+let lastSaveVersion = 0
+let activeAccountId = ''
+let queuedSave: PendingSave | null = null
+let cloudDrain: Promise<void> | null = null
+let localWrites: Promise<void> = Promise.resolve()
+let retryTimer: ReturnType<typeof setTimeout> | undefined
+
+function dataKey(accountId: string) { return `${DATA_PREFIX}${accountId}` }
+function pendingKey(accountId: string) { return `${PENDING_PREFIX}${accountId}` }
+function nextSaveVersion() {
+  lastSaveVersion = Math.max(Date.now(), lastSaveVersion + 1)
+  return lastSaveVersion
+}
+
+async function readPendingSave(accountId: string) {
+  try {
+    const stored = await AsyncStorage.getItem(pendingKey(accountId))
+    if (!stored) return null
+    const parsed = JSON.parse(stored) as PendingSave
+    return parsed.accountId === accountId && parsed.state ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+async function clearPendingSave(job: PendingSave) {
+  const stored = await readPendingSave(job.accountId)
+  if (stored?.version === job.version) await AsyncStorage.removeItem(pendingKey(job.accountId))
+}
+
+function scheduleCloudRetry() {
+  if (retryTimer !== undefined) return
+  retryTimer = setTimeout(() => {
+    retryTimer = undefined
+    void drainCloudSaves()
+  }, RETRY_DELAY_MS)
+}
+
+function drainCloudSaves() {
+  if (cloudDrain) return cloudDrain
+  cloudDrain = (async () => {
+    while (queuedSave && queuedSave.accountId === activeAccountId) {
+      const job = queuedSave
+      queuedSave = null
+      try {
+        const saved = await saveCloudState({ ...job.state, dietPlan: job.state.dietPlan ?? null, planSkippedAt: job.state.planSkippedAt ?? null } as unknown as Record<string, unknown>)
+        if (!saved) throw new Error('Cloud session unavailable.')
+        await clearPendingSave(job)
+      } catch {
+        const newerQueued = queuedSave as PendingSave | null
+        if (!newerQueued || newerQueued.version < job.version) queuedSave = job
+        scheduleCloudRetry()
+        break
+      }
+    }
+  })().finally(() => {
+    cloudDrain = null
+    if (queuedSave && retryTimer === undefined) void drainCloudSaves()
+  })
+  return cloudDrain
+}
 
 export const defaultProfile: UserProfile = {
   name: 'User',
@@ -119,10 +189,14 @@ function daysAgo(days: number) {
 
 export async function loadAppData(account: UserAccount) {
   try {
-    const cloud = isCloudConfigured() ? await loadCloudState() : null
-    const stored = await AsyncStorage.getItem(`${DATA_PREFIX}${account.id}`)
+    activeAccountId = account.id
+    const [cloud, stored, pending] = await Promise.all([
+      isCloudConfigured() ? loadCloudState() : Promise.resolve(null),
+      AsyncStorage.getItem(dataKey(account.id)),
+      readPendingSave(account.id),
+    ])
     const remoteState = cloud?.state && Object.keys(cloud.state).length ? cloud.state as Partial<AppData> : null
-    const parsed = remoteState ?? (stored ? JSON.parse(stored) as Partial<AppData> : {})
+    const parsed = pending?.state ?? remoteState ?? (stored ? JSON.parse(stored) as Partial<AppData> : {})
     const defaults = initialData(account)
     const currentWeekSelections = createDefaultSelections(buildMealGroups(parsed.dietPlan))
     const merged = {
@@ -136,7 +210,11 @@ export async function loadAppData(account: UserAccount) {
       weights: parsed.weights ?? defaults.weights,
       scanHistory: parsed.scanHistory ?? [],
     } as AppData
-    await AsyncStorage.setItem(`${DATA_PREFIX}${account.id}`, JSON.stringify(merged))
+    await AsyncStorage.setItem(dataKey(account.id), JSON.stringify(merged))
+    if (pending) {
+      queuedSave = pending
+      void drainCloudSaves()
+    }
     return merged
   } catch {
     return initialData(account)
@@ -144,8 +222,27 @@ export async function loadAppData(account: UserAccount) {
 }
 
 export async function saveAppData(accountId: string, data: AppData) {
-  await AsyncStorage.setItem(`${DATA_PREFIX}${accountId}`, JSON.stringify(data))
-  if (isCloudConfigured()) await saveCloudState({ ...data, dietPlan: data.dietPlan ?? null, planSkippedAt: data.planSkippedAt ?? null } as unknown as Record<string, unknown>).catch(() => null)
+  activeAccountId = accountId
+  const job: PendingSave = { accountId, version: nextSaveVersion(), state: data }
+  localWrites = localWrites.catch(() => undefined).then(async () => {
+    const entries: [string, string][] = [[dataKey(accountId), JSON.stringify(data)]]
+    if (isCloudConfigured()) entries.push([pendingKey(accountId), JSON.stringify(job)])
+    await AsyncStorage.multiSet(entries)
+    queuedSave = job
+  })
+  await localWrites
+  if (isCloudConfigured()) await drainCloudSaves()
+}
+
+export async function retryAppDataSave(accountId: string) {
+  activeAccountId = accountId
+  const stored = await readPendingSave(accountId)
+  if (stored && (!queuedSave || stored.version > queuedSave.version)) queuedSave = stored
+  if (retryTimer !== undefined) {
+    clearTimeout(retryTimer)
+    retryTimer = undefined
+  }
+  await drainCloudSaves()
 }
 
 export function applyDietPlan(data: AppData, plan: ImportedDietPlan): AppData {

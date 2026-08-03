@@ -15,8 +15,9 @@ import { TodayPage } from './pages/TodayPage'
 import { WeekPage } from './pages/WeekPage'
 import { WorkoutsPage } from './pages/WorkoutsPage'
 import { accountStorageKey, getCurrentAccount, saveDietPlan, signOut, subscribeToAuthChanges, updateAccount } from './services/auth'
+import { flushAutosave, pauseAutosave, pendingAutosaveState, queueAutosave } from './services/autosave'
 import { buildMealGroups } from './services/dietPlan'
-import { loadCloudState, saveCloudState } from './services/cloud'
+import { loadCloudState } from './services/cloud'
 import { defaultReminderSettings, getNotificationPermission, requestNotificationPermission, sendReminderNotification } from './services/reminders'
 import type { FoodProduct, FruitMap, HabitId, HabitMap, ImportedDietPlan, Language, PlanPreset, ReminderSettings, SelectionMap, SportPreference, ThemeMode, UserAccount, UserProfile, View, WeightEntry } from './types'
 import { buildWeek, createDefaultSelections, createRandomWeek, getDayTotals, normalizeSelectionMap } from './utils'
@@ -121,8 +122,10 @@ function DietApp({ account, onAccountChange, onLogout }: DietAppProps) {
   useEffect(() => {
     let active = true
     void loadCloudState().then((cloud) => {
-      if (!active || !cloud?.state || Object.keys(cloud.state).length === 0) { if (active) setCloudHydrated(true); return }
-      const state = cloud.state
+      if (!active) return
+      const pendingState = pendingAutosaveState(account.id)
+      const state = pendingState ?? cloud?.state
+      if (!state || Object.keys(state).length === 0) { setCloudHydrated(true); return }
       if (state.theme) setTheme(state.theme as ThemeMode)
       if (state.language) setLanguage(state.language as Language)
       if (state.profile) setProfile((current) => ({ ...current, ...(state.profile as UserProfile) }))
@@ -146,16 +149,27 @@ function DietApp({ account, onAccountChange, onLogout }: DietAppProps) {
 
   useEffect(() => {
     if (!cloudHydrated) return
-    const timer = window.setTimeout(() => {
-      void saveCloudState({
-        profile, dietPlan: account.dietPlan ?? null, planSkippedAt: account.planSkippedAt ?? null,
-        selections, fruitMap, waterByDay: waterMap, habits, presets,
-        sport: sportPreference, language, theme, scanHistory, shoppingList,
-        reminders, weights: weightEntries,
-      }).catch(() => undefined)
-    }, 500)
-    return () => window.clearTimeout(timer)
-  }, [account.dietPlan, account.planSkippedAt, cloudHydrated, fruitMap, habits, language, presets, profile, reminders, scanHistory, selections, shoppingList, sportPreference, theme, waterMap, weightEntries])
+    queueAutosave(account.id, {
+      profile, dietPlan: account.dietPlan ?? null, planSkippedAt: account.planSkippedAt ?? null,
+      selections, fruitMap, waterByDay: waterMap, habits, presets,
+      sport: sportPreference, language, theme, scanHistory, shoppingList,
+      reminders, weights: weightEntries,
+    })
+  }, [account.dietPlan, account.id, account.planSkippedAt, cloudHydrated, fruitMap, habits, language, presets, profile, reminders, scanHistory, selections, shoppingList, sportPreference, theme, waterMap, weightEntries])
+
+  useEffect(() => {
+    const flush = () => { void flushAutosave(account.id) }
+    const handleVisibility = () => { if (document.visibilityState === 'hidden') flush() }
+    window.addEventListener('online', flush)
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      window.removeEventListener('online', flush)
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', handleVisibility)
+      pauseAutosave(account.id)
+    }
+  }, [account.id])
 
   useEffect(() => {
     const media = window.matchMedia?.('(prefers-color-scheme: dark)')
@@ -346,6 +360,11 @@ function DietApp({ account, onAccountChange, onLogout }: DietAppProps) {
     setShoppingList((current) => current.some((item) => item.id === product.id) ? current.filter((item) => item.id !== product.id) : [product, ...current])
   }
 
+  async function logoutSafely() {
+    await flushAutosave(account.id)
+    onLogout()
+  }
+
   function applyImportedPlan(plan: ImportedDietPlan) {
     const nextMealGroups = buildMealGroups(plan)
     setSelections(createDefaultSelections(days, nextMealGroups))
@@ -381,12 +400,12 @@ function DietApp({ account, onAccountChange, onLogout }: DietAppProps) {
       page = <ProfilePage profile={profile} onChange={(next) => { setProfile(next); if (next.name.trim().length >= 2 && next.name.trim() !== account.displayName) onAccountChange(updateAccount(account.id, { displayName: next.name.trim() })) }} />
       break
     case 'settings':
-      page = <SettingsPage profile={profile} language={language} theme={theme} account={account} reminders={reminders} notificationPermission={notificationPermission} onProfileChange={(next) => { setProfile(next); if (next.name.trim().length >= 2 && next.name.trim() !== account.displayName) onAccountChange(updateAccount(account.id, { displayName: next.name.trim() })) }} onLanguageChange={setLanguage} onThemeChange={setTheme} onReminderChange={setReminders} onEnableNotifications={enableNotifications} onTestNotification={() => sendReminderNotification(language === 'ar' ? '💧 تذكير تجريبي' : '💧 Test reminder', language === 'ar' ? 'تعمل إشعارات توازن بشكل صحيح.' : 'Tawazon notifications are working correctly.', 'tawazon-test')} onOpenPlanImport={() => setImportingPlan(true)} onLogout={onLogout} />
+      page = <SettingsPage profile={profile} language={language} theme={theme} account={account} reminders={reminders} notificationPermission={notificationPermission} onProfileChange={(next) => { setProfile(next); if (next.name.trim().length >= 2 && next.name.trim() !== account.displayName) onAccountChange(updateAccount(account.id, { displayName: next.name.trim() })) }} onLanguageChange={setLanguage} onThemeChange={setTheme} onReminderChange={setReminders} onEnableNotifications={enableNotifications} onTestNotification={() => sendReminderNotification(language === 'ar' ? '💧 تذكير تجريبي' : '💧 Test reminder', language === 'ar' ? 'تعمل إشعارات توازن بشكل صحيح.' : 'Tawazon notifications are working correctly.', 'tawazon-test')} onOpenPlanImport={() => setImportingPlan(true)} onLogout={() => void logoutSafely()} />
       break
     default:
       page = <TodayPage dayId={days[0].id} mealGroups={mealGroups} selections={selections} totals={todayTotals} weeklyTotals={weeklyTotals} profile={profile} water={waterMap[days[0].id] ?? 0} habitStreak={habitStreak} onWaterChange={(value) => setWaterMap((current) => ({ ...current, [days[0].id]: value }))} onOpenPlan={() => { setSelectedDayId(days[0].id); changeView('plan') }} onOpenProgress={() => changeView('progress')} />
   }
 
   const displayName = language === 'ar' ? profile.name || 'مستخدم' : profile.name === 'محمد' ? 'Mohammed' : profile.name || 'User'
-  return <Layout view={view} onViewChange={changeView} darkMode={darkMode} onToggleTheme={() => setTheme(darkMode ? 'light' : 'dark')} userName={displayName} currentDate={language === 'ar' ? days[0].date : days[0].dateEn} language={language} onLogout={onLogout}>{page}</Layout>
+  return <Layout view={view} onViewChange={changeView} darkMode={darkMode} onToggleTheme={() => setTheme(darkMode ? 'light' : 'dark')} userName={displayName} currentDate={language === 'ar' ? days[0].date : days[0].dateEn} language={language} onLogout={() => void logoutSafely()}>{page}</Layout>
 }
