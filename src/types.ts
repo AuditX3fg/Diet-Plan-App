@@ -81,6 +81,14 @@ export interface PlanPreset {
 export type HabitId = 'meal-1' | 'meal-2' | 'meal-3' | 'meal-4' | 'fruit' | 'workout'
 export type HabitMap = Record<string, Partial<Record<HabitId, boolean>>>
 
+export interface ReminderSettings {
+  enabled: boolean
+  waterEnabled: boolean
+  mealEnabled: boolean
+  waterIntervalMinutes: number
+  mealTimes: string[]
+}
+
 export interface FoodProduct {
   id: string
   barcode?: string

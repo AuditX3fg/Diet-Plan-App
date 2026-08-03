@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'tawazon-pwa-2026-08-03-1'
+const CACHE_VERSION = 'tawazon-pwa-2026-08-03-2'
 const APP_ROOT = new URL('./', self.registration.scope).href
 const APP_SHELL = [
   APP_ROOT,
@@ -50,6 +50,17 @@ self.addEventListener('fetch', (event) => {
         }
         return response
       })
+    }),
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const targetUrl = new URL(event.notification.data?.url || './', self.registration.scope).href
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      const existingClient = clients.find((client) => client.url.startsWith(self.registration.scope))
+      return existingClient ? existingClient.focus() : self.clients.openWindow(targetUrl)
     }),
   )
 })

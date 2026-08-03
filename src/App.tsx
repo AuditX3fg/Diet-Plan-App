@@ -16,7 +16,8 @@ import { WeekPage } from './pages/WeekPage'
 import { WorkoutsPage } from './pages/WorkoutsPage'
 import { accountStorageKey, getCurrentAccount, saveDietPlan, signOut, subscribeToAuthChanges, updateAccount } from './services/auth'
 import { buildMealGroups } from './services/dietPlan'
-import type { FoodProduct, FruitMap, HabitId, HabitMap, ImportedDietPlan, Language, PlanPreset, SelectionMap, SportPreference, ThemeMode, UserAccount, UserProfile, View, WeightEntry } from './types'
+import { defaultReminderSettings, getNotificationPermission, requestNotificationPermission, sendReminderNotification } from './services/reminders'
+import type { FoodProduct, FruitMap, HabitId, HabitMap, ImportedDietPlan, Language, PlanPreset, ReminderSettings, SelectionMap, SportPreference, ThemeMode, UserAccount, UserProfile, View, WeightEntry } from './types'
 import { buildWeek, createDefaultSelections, createRandomWeek, getDayTotals, normalizeSelectionMap } from './utils'
 
 const defaultProfile: UserProfile = {
@@ -104,6 +105,8 @@ function DietApp({ account, onAccountChange, onLogout }: DietAppProps) {
   const [sportPreference, setSportPreference] = useLocalStorage<SportPreference>(storageKey('sport-v1'), 'gym')
   const [scanHistory, setScanHistory] = useLocalStorage<FoodProduct[]>(storageKey('scan-history-v1'), [])
   const [shoppingList, setShoppingList] = useLocalStorage<FoodProduct[]>(storageKey('shopping-v1'), [])
+  const [reminders, setReminders] = useLocalStorage<ReminderSettings>(storageKey('reminders-v1'), defaultReminderSettings)
+  const [notificationPermission, setNotificationPermission] = useState(getNotificationPermission)
   const [weightEntries, setWeightEntries] = useLocalStorage<WeightEntry[]>(storageKey('weight-history'), [
     { date: dateDaysAgo(35), value: 85.1 },
     { date: dateDaysAgo(28), value: 84.6 },
@@ -127,6 +130,80 @@ function DietApp({ account, onAccountChange, onLogout }: DietAppProps) {
   }, [language])
 
   useEffect(() => {
+    const refreshPermission = () => setNotificationPermission(getNotificationPermission())
+    document.addEventListener('visibilitychange', refreshPermission)
+    return () => document.removeEventListener('visibilitychange', refreshPermission)
+  }, [])
+
+  useEffect(() => {
+    if (!reminders.enabled || notificationPermission !== 'granted') return
+
+    const runtimeKey = storageKey('reminder-runtime-v1')
+    const readRuntime = () => {
+      try {
+        return JSON.parse(window.localStorage.getItem(runtimeKey) || '{}') as { lastWaterAt?: number; mealMarkers?: string[] }
+      } catch {
+        return {} as { lastWaterAt?: number; mealMarkers?: string[] }
+      }
+    }
+    const saveRuntime = (runtime: { lastWaterAt?: number; mealMarkers?: string[] }) => {
+      try { window.localStorage.setItem(runtimeKey, JSON.stringify(runtime)) } catch { /* Continue without persistence in private browsing. */ }
+    }
+
+    const checkReminders = async () => {
+      const now = new Date()
+      const runtime = readRuntime()
+
+      if (reminders.waterEnabled) {
+        const intervalMs = Math.max(15, reminders.waterIntervalMinutes) * 60_000
+        if (!runtime.lastWaterAt) {
+          runtime.lastWaterAt = now.getTime()
+          saveRuntime(runtime)
+        } else if (now.getTime() - runtime.lastWaterAt >= intervalMs) {
+          runtime.lastWaterAt = now.getTime()
+          saveRuntime(runtime)
+          const glasses = waterMap[days[0].id] ?? 0
+          await sendReminderNotification(
+            language === 'ar' ? '💧 حان وقت الماء' : '💧 Time to drink water',
+            language === 'ar' ? `شربت ${glasses} من ٨ أكواب اليوم. خذ كوباً الآن.` : `You have logged ${glasses} of 8 glasses today. Have a glass now.`,
+            'tawazon-water',
+          )
+        }
+      }
+
+      if (reminders.mealEnabled) {
+        const markers = runtime.mealMarkers ?? []
+        const dateKey = now.toISOString().slice(0, 10)
+        for (let index = 0; index < reminders.mealTimes.length; index += 1) {
+          const time = reminders.mealTimes[index]
+          const [hours, minutes] = time.split(':').map(Number)
+          if (!Number.isFinite(hours) || !Number.isFinite(minutes)) continue
+          const scheduled = new Date(now)
+          scheduled.setHours(hours, minutes, 0, 0)
+          const marker = `${dateKey}-${index}-${time}`
+          const dueForLessThanTenMinutes = now >= scheduled && now.getTime() - scheduled.getTime() < 10 * 60_000
+          if (!dueForLessThanTenMinutes || markers.includes(marker)) continue
+
+          markers.push(marker)
+          runtime.mealMarkers = markers.slice(-28)
+          saveRuntime(runtime)
+          const group = mealGroups[index]
+          const mealName = group ? (language === 'ar' ? group.title : group.titleEn) : (language === 'ar' ? 'وجبتك' : 'your meal')
+          await sendReminderNotification(
+            language === 'ar' ? `🍽️ موعد ${mealName}` : `🍽️ ${mealName} reminder`,
+            language === 'ar' ? 'افتح توازن وراجع الحصص المخططة لهذه الوجبة.' : 'Open Tawazon and review the portions planned for this meal.',
+            `tawazon-meal-${index}`,
+          )
+        }
+      }
+    }
+
+    void checkReminders()
+    const timer = window.setInterval(() => void checkReminders(), 30_000)
+    return () => window.clearInterval(timer)
+  }, [account.id, days, language, mealGroups, notificationPermission, reminders, waterMap])
+
+  useEffect(() => {
     setStoredSelections((current: unknown) => normalizeSelectionMap(current))
   }, [setStoredSelections])
 
@@ -147,6 +224,19 @@ function DietApp({ account, onAccountChange, onLogout }: DietAppProps) {
   }, [habits])
   const selectedTotals = getDayTotals(selectedDayId, selections, fruitMap, mealGroups)
   const todayTotals = getDayTotals(days[0].id, selections, fruitMap, mealGroups)
+
+  async function enableNotifications() {
+    const permission = await requestNotificationPermission()
+    setNotificationPermission(permission)
+    if (permission === 'granted') {
+      setReminders((current) => ({ ...current, enabled: true }))
+      await sendReminderNotification(
+        language === 'ar' ? 'تم تفعيل تذكيرات توازن' : 'Tawazon reminders are on',
+        language === 'ar' ? 'سنذكّرك بالماء والوجبات حسب جدولك.' : 'We will remind you about water and meals using your schedule.',
+        'tawazon-enabled',
+      )
+    }
+  }
 
   function changeView(nextView: View) {
     setView(nextView)
@@ -250,7 +340,7 @@ function DietApp({ account, onAccountChange, onLogout }: DietAppProps) {
       page = <ProfilePage profile={profile} onChange={setProfile} />
       break
     case 'settings':
-      page = <SettingsPage profile={profile} language={language} theme={theme} account={account} onProfileChange={(next) => { setProfile(next); if (next.name.trim() && next.name.trim() !== account.displayName) onAccountChange(updateAccount(account.id, { displayName: next.name.trim() })) }} onLanguageChange={setLanguage} onThemeChange={setTheme} onOpenPlanImport={() => setImportingPlan(true)} onLogout={onLogout} />
+      page = <SettingsPage profile={profile} language={language} theme={theme} account={account} reminders={reminders} notificationPermission={notificationPermission} onProfileChange={(next) => { setProfile(next); if (next.name.trim() && next.name.trim() !== account.displayName) onAccountChange(updateAccount(account.id, { displayName: next.name.trim() })) }} onLanguageChange={setLanguage} onThemeChange={setTheme} onReminderChange={setReminders} onEnableNotifications={enableNotifications} onTestNotification={() => sendReminderNotification(language === 'ar' ? '💧 تذكير تجريبي' : '💧 Test reminder', language === 'ar' ? 'تعمل إشعارات توازن بشكل صحيح.' : 'Tawazon notifications are working correctly.', 'tawazon-test')} onOpenPlanImport={() => setImportingPlan(true)} onLogout={onLogout} />
       break
     default:
       page = <TodayPage dayId={days[0].id} mealGroups={mealGroups} selections={selections} totals={todayTotals} weeklyTotals={weeklyTotals} profile={profile} water={waterMap[days[0].id] ?? 0} habitStreak={habitStreak} onWaterChange={(value) => setWaterMap((current) => ({ ...current, [days[0].id]: value }))} onOpenPlan={() => { setSelectedDayId(days[0].id); changeView('plan') }} onOpenProgress={() => changeView('progress')} />
