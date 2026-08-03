@@ -1,9 +1,10 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
-import { Bell, Check, Download, FileText, KeyRound, Languages, LogOut, MonitorCog, Moon, Send, Settings2, Share2, Smartphone, Sun, UserRound } from 'lucide-react'
+import { Bell, Check, Download, FileText, KeyRound, Languages, LogOut, MessageSquareText, MonitorCog, Moon, Send, Settings2, Share2, Smartphone, Sun, UserRound } from 'lucide-react'
 import type { Language, ReminderSettings, ThemeMode, UserAccount, UserProfile } from '../types'
 import { tr } from '../i18n'
 import { clearInstallPrompt, getInstallPrompt, subscribeToInstallPrompt } from '../pwa'
 import type { NotificationSupport } from '../services/reminders'
+import { submitCloudFeedback } from '../services/cloud'
 
 interface SettingsPageProps {
   profile: UserProfile
@@ -39,6 +40,11 @@ const themes: { id: ThemeMode; label: string; labelEn: string; icon: typeof Sun 
 export function SettingsPage({ profile, language, theme, account, reminders, notificationPermission, onProfileChange, onLanguageChange, onThemeChange, onReminderChange, onEnableNotifications, onTestNotification, onOpenPlanImport, onLogout }: SettingsPageProps) {
   const [installPrompt, setInstallPrompt] = useState(getInstallPrompt)
   const [isInstalled, setIsInstalled] = useState(false)
+  const [feedbackRating, setFeedbackRating] = useState(5)
+  const [feedbackCategory, setFeedbackCategory] = useState('experience')
+  const [feedbackMessage, setFeedbackMessage] = useState('')
+  const [feedbackStatus, setFeedbackStatus] = useState('')
+  const [feedbackBusy, setFeedbackBusy] = useState(false)
   const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)
 
   useEffect(() => {
@@ -74,6 +80,18 @@ export function SettingsPage({ profile, language, theme, account, reminders, not
 
   const updateMealTime = (index: number, value: string) => {
     onReminderChange((current) => ({ ...current, mealTimes: current.mealTimes.map((time, timeIndex) => timeIndex === index ? value : time) }))
+  }
+
+  const sendFeedback = async () => {
+    setFeedbackBusy(true)
+    setFeedbackStatus('')
+    try {
+      const result = await submitCloudFeedback({ rating: feedbackRating, category: feedbackCategory, message: feedbackMessage, page: 'settings' })
+      setFeedbackMessage('')
+      setFeedbackStatus(result.emailSent ? tr('تم إرسال ملاحظاتك بنجاح.', 'Feedback sent successfully.') : tr('تم حفظ ملاحظاتك وستظهر للمشرف.', 'Feedback saved and visible to the administrator.'))
+    } catch (caught) {
+      setFeedbackStatus(caught instanceof Error ? caught.message : tr('تعذر إرسال الملاحظات.', 'Could not send feedback.'))
+    } finally { setFeedbackBusy(false) }
   }
 
   return (
@@ -116,6 +134,17 @@ export function SettingsPage({ profile, language, theme, account, reminders, not
               <button className="settings-action" onClick={() => void onTestNotification()}><Send size={14} /> {tr('إرسال إشعار تجريبي', 'Send test notification')}</button>
             </div>
           )}
+        </div>
+        <div className="settings-card card-surface feedback-card">
+          <div className="settings-title"><span><MessageSquareText size={19} /></span><div><small>{tr('تجربتك', 'Your experience')}</small><h3>{tr('أرسل ملاحظاتك', 'Send feedback')}</h3></div></div>
+          <p className="setting-help">{tr('شارك اقتراحاً أو مشكلة. تُحفظ الرسالة بأمان وتظهر للمشرف.', 'Share an idea or report a problem. Your message is stored securely and shown to the administrator.')}</p>
+          <div className="feedback-form">
+            <div className="feedback-rating" aria-label={tr('التقييم', 'Rating')}>{[1, 2, 3, 4, 5].map((rating) => <button type="button" key={rating} className={rating <= feedbackRating ? 'active' : ''} onClick={() => setFeedbackRating(rating)} aria-label={`${rating} / 5`}>★</button>)}</div>
+            <select aria-label={tr('نوع الملاحظات', 'Feedback category')} value={feedbackCategory} onChange={(event) => setFeedbackCategory(event.target.value)}><option value="experience">{tr('تجربة الاستخدام', 'Experience')}</option><option value="bug">{tr('مشكلة', 'Bug')}</option><option value="feature">{tr('اقتراح ميزة', 'Feature request')}</option><option value="meals">{tr('الوجبات', 'Meals')}</option><option value="workouts">{tr('التمارين', 'Workouts')}</option><option value="general">{tr('عام', 'General')}</option></select>
+            <textarea value={feedbackMessage} onChange={(event) => setFeedbackMessage(event.target.value)} minLength={10} maxLength={2000} placeholder={tr('اكتب ملاحظاتك هنا…', 'Tell us what worked or what could be better…')} />
+            <button className="settings-action" disabled={feedbackBusy || feedbackMessage.trim().length < 10} onClick={() => void sendFeedback()}><Send size={14} /> {feedbackBusy ? tr('جارٍ الإرسال…', 'Sending…') : tr('إرسال الملاحظات', 'Send feedback')}</button>
+            {feedbackStatus && <p className="feedback-status">{feedbackStatus}</p>}
+          </div>
         </div>
         <div className="settings-card card-surface"><div className="settings-title"><span><KeyRound size={19} /></span><div><small>{tr('الأمان', 'Security')}</small><h3>{tr('كلمة المرور والاسترداد', 'Password and recovery')}</h3></div></div><p className="setting-help">{tr('استخدم رمز الاسترداد المحفوظ لإعادة تعيين كلمة المرور من شاشة تسجيل الدخول.', 'Use your saved recovery code to reset the password from the sign-in screen.')}</p><button className="settings-action danger" onClick={onLogout}><LogOut size={15} /> {tr('تسجيل الخروج', 'Sign out')}</button></div>
       </section>

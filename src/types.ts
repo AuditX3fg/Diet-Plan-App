@@ -1,4 +1,4 @@
-export type View = 'today' | 'plan' | 'week' | 'habits' | 'scanner' | 'workouts' | 'progress' | 'profile' | 'settings'
+export type View = 'today' | 'plan' | 'week' | 'habits' | 'scanner' | 'workouts' | 'progress' | 'profile' | 'settings' | 'admin'
 export type ThemeMode = 'light' | 'dark' | 'system'
 export type Language = 'ar' | 'en' | 'fr'
 export type Gender = 'male' | 'female'
@@ -152,6 +152,7 @@ export interface UserAccount {
   email?: string
   displayName: string
   workoutMode?: 'unselected' | 'default' | 'custom'
+  isSuperAdmin?: boolean
   createdAt: string
   dietPlan?: ImportedDietPlan
   planSkippedAt?: string

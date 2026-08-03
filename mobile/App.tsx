@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, AppState, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, AppState, Platform, StyleSheet, Text, View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { AuthScreen } from './src/screens/AuthScreen'
@@ -14,6 +14,7 @@ import { getCurrentAccount, signOut, updateAccount, updateAccountDetails } from 
 import { applyDietPlan, buildMealGroups, loadAppData, retryAppDataSave, saveAppData, skipDietPlan } from './src/services/storage'
 import type { AppData, MainTab, UserAccount, UserProfile } from './src/types'
 import { palette, useAppTheme } from './src/theme'
+import { recordCloudActivity } from './src/services/cloud'
 
 export default function App() {
   return <SafeAreaProvider><AppRoot /></SafeAreaProvider>
@@ -79,6 +80,9 @@ function AuthenticatedApp({ account, data, onChangeAccount, onChangeData, onLogo
   useEffect(() => {
     void saveAppData(account.id, data)
   }, [account.id, data])
+
+  useEffect(() => { void recordCloudActivity('app_open', tab, Platform.OS === 'ios' || Platform.OS === 'android' ? Platform.OS : 'unknown').catch(() => undefined) }, [account.id])
+  useEffect(() => { void recordCloudActivity('page_view', tab, Platform.OS === 'ios' || Platform.OS === 'android' ? Platform.OS : 'unknown').catch(() => undefined) }, [account.id, tab])
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {

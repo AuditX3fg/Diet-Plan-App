@@ -1,7 +1,7 @@
 export type Language = 'en' | 'ar' | 'fr'
 export type ThemeMode = 'light' | 'dark' | 'system'
 export type MainTab = 'today' | 'plan' | 'progress' | 'profile' | 'more'
-export type MoreSection = 'habits' | 'workouts' | 'scanner' | 'settings'
+export type MoreSection = 'habits' | 'workouts' | 'scanner' | 'settings' | 'admin'
 export type DietMealId = 'breakfast' | 'snack' | 'lunch' | 'dinner'
 export type Gender = 'male' | 'female'
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very-active'
@@ -81,6 +81,7 @@ export interface UserAccount {
   email?: string
   displayName: string
   workoutMode?: 'unselected' | 'default' | 'custom'
+  isSuperAdmin?: boolean
   createdAt: string
 }
 

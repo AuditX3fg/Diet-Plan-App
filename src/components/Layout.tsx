@@ -15,6 +15,7 @@ import {
   Moon,
   ScanLine,
   Settings2,
+  ShieldCheck,
   SlidersHorizontal,
   Sun,
   X,
@@ -31,6 +32,7 @@ interface LayoutProps {
   currentDate: string
   language: Language
   onLogout: () => void
+  isSuperAdmin?: boolean
 }
 
 const navItems = [
@@ -43,24 +45,27 @@ const navItems = [
   { id: 'progress' as const, icon: ChartNoAxesColumnIncreasing },
   { id: 'profile' as const, icon: HeartPulse },
   { id: 'settings' as const, icon: SlidersHorizontal },
+  { id: 'admin' as const, icon: ShieldCheck },
 ]
 
 const mobilePrimaryItems = navItems.filter(({ id }) => ['today', 'plan', 'week', 'progress'].includes(id))
-const mobileMoreItems = navItems.filter(({ id }) => ['habits', 'scanner', 'workouts', 'profile', 'settings'].includes(id))
+const mobileMoreItems = navItems.filter(({ id }) => ['habits', 'scanner', 'workouts', 'profile', 'settings', 'admin'].includes(id))
 
 const labels: Record<Language, Record<View, string>> = {
-  ar: { today: 'الرئيسية', plan: 'خطتي', week: 'الأسبوع', habits: 'متابعة', scanner: 'مسح', workouts: 'تمرين', progress: 'التقدم', profile: 'الكتلة', settings: 'الإعدادات' },
-  en: { today: 'Home', plan: 'My plan', week: 'Week', habits: 'Tracker', scanner: 'Scan', workouts: 'Workout', progress: 'Progress', profile: 'Health', settings: 'Settings' },
-  fr: { today: 'Accueil', plan: 'Mon plan', week: 'Semaine', habits: 'Suivi', scanner: 'Scanner', workouts: 'Sport', progress: 'Progrès', profile: 'Santé', settings: 'Réglages' },
+  ar: { today: 'الرئيسية', plan: 'خطتي', week: 'الأسبوع', habits: 'متابعة', scanner: 'مسح', workouts: 'تمرين', progress: 'التقدم', profile: 'الكتلة', settings: 'الإعدادات', admin: 'الإدارة' },
+  en: { today: 'Home', plan: 'My plan', week: 'Week', habits: 'Tracker', scanner: 'Scan', workouts: 'Workout', progress: 'Progress', profile: 'Health', settings: 'Settings', admin: 'Admin' },
+  fr: { today: 'Accueil', plan: 'Mon plan', week: 'Semaine', habits: 'Suivi', scanner: 'Scanner', workouts: 'Sport', progress: 'Progrès', profile: 'Santé', settings: 'Réglages', admin: 'Admin' },
 }
 
-export function Layout({ children, view, onViewChange, darkMode, onToggleTheme, userName, currentDate, language, onLogout }: LayoutProps) {
+export function Layout({ children, view, onViewChange, darkMode, onToggleTheme, userName, currentDate, language, onLogout, isSuperAdmin = false }: LayoutProps) {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const languageLabels = labels[language]
   const moreLabel = language === 'ar' ? 'المزيد' : language === 'fr' ? 'Plus' : 'More'
   const exploreLabel = language === 'ar' ? 'المزيد من الأدوات' : language === 'fr' ? 'Plus d’outils' : 'More tools'
-  const moreActive = mobileMenuOpen || mobileMoreItems.some(({ id }) => id === view)
+  const visibleNavItems = navItems.filter(({ id }) => id !== 'admin' || isSuperAdmin)
+  const visibleMobileMoreItems = mobileMoreItems.filter(({ id }) => id !== 'admin' || isSuperAdmin)
+  const moreActive = mobileMenuOpen || visibleMobileMoreItems.some(({ id }) => id === view)
 
   function navigate(nextView: View) {
     onViewChange(nextView)
@@ -77,7 +82,7 @@ export function Layout({ children, view, onViewChange, darkMode, onToggleTheme, 
 
         <nav className="side-nav" aria-label={language === 'ar' ? 'التنقل الرئيسي' : 'Main navigation'}>
           <p className="nav-kicker">{language === 'ar' ? 'القائمة' : language === 'fr' ? 'MENU' : 'MENU'}</p>
-          {navItems.map(({ id, icon: Icon }) => (
+          {visibleNavItems.map(({ id, icon: Icon }) => (
             <button key={id} className={view === id ? 'nav-link active' : 'nav-link'} onClick={() => onViewChange(id)}>
               <Icon size={20} />
               <span>{languageLabels[id]}</span>
@@ -124,7 +129,7 @@ export function Layout({ children, view, onViewChange, darkMode, onToggleTheme, 
       {mobileMenuOpen && <button className="mobile-nav-scrim" aria-label={language === 'ar' ? 'إغلاق قائمة المزيد' : 'Close more menu'} onClick={() => setMobileMenuOpen(false)} />}
       {mobileMenuOpen && <section className="mobile-more-menu card-surface" aria-label={exploreLabel}>
         <header><b>{exploreLabel}</b><button onClick={() => setMobileMenuOpen(false)} aria-label={language === 'ar' ? 'إغلاق' : 'Close'}><X size={19} /></button></header>
-        <div>{mobileMoreItems.map(({ id, icon: Icon }) => <button key={id} className={view === id ? 'active' : ''} onClick={() => navigate(id)}><span><Icon size={22} strokeWidth={view === id ? 2.6 : 2.1} /></span><b>{languageLabels[id]}</b></button>)}</div>
+        <div>{visibleMobileMoreItems.map(({ id, icon: Icon }) => <button key={id} className={view === id ? 'active' : ''} onClick={() => navigate(id)}><span><Icon size={22} strokeWidth={view === id ? 2.6 : 2.1} /></span><b>{languageLabels[id]}</b></button>)}</div>
       </section>}
 
       <nav className="bottom-nav" aria-label={language === 'ar' ? 'التنقل الرئيسي للهاتف' : 'Mobile navigation'}>

@@ -3,6 +3,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2.57.4'
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const publishableKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+const resendApiKey = Deno.env.get('RESEND_API_KEY') ?? ''
+const feedbackFromEmail = Deno.env.get('FEEDBACK_FROM_EMAIL') ?? 'Tawazon Feedback <onboarding@resend.dev>'
 const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
 })
@@ -19,6 +21,8 @@ const maxVideoBytes = 100 * 1024 * 1024
 const maxLibraryBytes = 2 * 1024 * 1024 * 1024
 const maxVideosPerDay = 50
 const trainingSessions = new Set(['day-1', 'day-2', 'day-3', 'day-4', 'abs'])
+const clientActivityEvents = new Set(['app_open', 'page_view'])
+const feedbackCategories = new Set(['general', 'experience', 'bug', 'feature', 'meals', 'workouts'])
 const videoExtensions = new Map([
   ['video/mp4', 'mp4'],
   ['video/quicktime', 'mov'],
@@ -40,6 +44,7 @@ interface ProfileRow {
   display_name: string
   workout_mode: 'unselected' | 'default' | 'custom'
   workout_source_user_id: string | null
+  role: 'user' | 'super_admin'
   created_at: string
 }
 
@@ -60,6 +65,20 @@ interface VideoRow {
   size_bytes: number
   status: 'pending' | 'ready'
   created_at: string
+}
+
+interface FeedbackRow {
+  id: string
+  user_id: string
+  rating: number
+  category: string
+  message: string
+  page: string | null
+  platform: 'web' | 'ios' | 'android' | 'unknown'
+  status: 'new' | 'reviewed' | 'resolved'
+  email_status: 'pending' | 'sent' | 'not_configured' | 'failed'
+  created_at: string
+  updated_at: string
 }
 
 function corsHeaders() {
@@ -89,6 +108,20 @@ function normalize(value: unknown) {
 
 function isEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)
+}
+
+function platformValue(value: unknown): 'web' | 'ios' | 'android' | 'unknown' {
+  const platform = String(value ?? '').toLowerCase()
+  return platform === 'web' || platform === 'ios' || platform === 'android' ? platform : 'unknown'
+}
+
+function pageValue(value: unknown) {
+  const page = String(value ?? '').trim().toLowerCase().slice(0, 48)
+  return page || null
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character)
 }
 
 function normalizeRecovery(value: unknown) {
@@ -147,6 +180,7 @@ function publicAccount(profile: ProfileRow) {
     email: profile.email,
     displayName: profile.display_name,
     workoutMode: profile.workout_mode ?? 'default',
+    isSuperAdmin: profile.role === 'super_admin',
     createdAt: profile.created_at,
   }
 }
@@ -183,6 +217,25 @@ async function profileByIdentifier(identifierInput: unknown) {
   const { data, error } = await admin.from('tawazon_profiles').select('*').eq(column, identifier).maybeSingle()
   if (error) throw error
   return data as ProfileRow | null
+}
+
+async function requireSuperAdmin(userId: string) {
+  const profile = await profileById(userId)
+  if (profile.role !== 'super_admin') throw new HttpError(403, 'Super-admin access is required.')
+  return profile
+}
+
+async function recordActivity(userId: string, eventType: string, page: string | null = null, platform: 'web' | 'ios' | 'android' | 'unknown' = 'unknown', metadata: Record<string, unknown> = {}) {
+  const safeMetadata = Object.fromEntries(Object.entries(metadata).slice(0, 6).map(([key, value]) => [key.slice(0, 40), typeof value === 'string' ? value.slice(0, 120) : value]))
+  const { error } = await admin.from('tawazon_activity_events').insert({ user_id: userId, event_type: eventType.slice(0, 48), page, platform, metadata: safeMetadata })
+  if (error) throw error
+}
+
+async function submitClientActivity(userId: string, body: Record<string, unknown>) {
+  const eventType = String(body.eventType ?? '')
+  if (!clientActivityEvents.has(eventType)) throw new HttpError(400, 'Unsupported activity event.')
+  await recordActivity(userId, eventType, pageValue(body.page), platformValue(body.platform))
+  return { recorded: true }
 }
 
 async function loadState(userId: string) {
@@ -283,6 +336,7 @@ async function register(body: Record<string, unknown>) {
     await admin.auth.admin.deleteUser(userId).catch(() => undefined)
     throw error
   }
+  await recordActivity(userId, 'account_created', null, platformValue(body.platform)).catch(() => undefined)
   return { ...await accountResponse(userId), welcomeEmailSent: false }
 }
 
@@ -296,6 +350,7 @@ async function login(body: Record<string, unknown>) {
   const { error } = await authClient.auth.signInWithPassword({ email: profile.email, password })
   await authClient.auth.signOut().catch(() => undefined)
   if (error) throw new HttpError(401, 'Username or password is incorrect.')
+  await recordActivity(profile.id, 'sign_in', null, platformValue(body.platform)).catch(() => undefined)
   return accountResponse(profile.id)
 }
 
@@ -412,7 +467,94 @@ async function updateProfile(userId: string, tokenHash: string, body: Record<str
     throw error
   }
   if (passwordChanged) await admin.from('tawazon_sessions').delete().eq('user_id', userId).neq('token_hash', tokenHash)
+  await recordActivity(userId, 'profile_updated', 'profile').catch(() => undefined)
   return { account: publicAccount(data as ProfileRow), usernameChanged, emailChanged, passwordChanged }
+}
+
+async function deliverFeedbackEmail(feedback: FeedbackRow, profile: ProfileRow) {
+  const { data: recipients, error: recipientError } = await admin.from('tawazon_profiles').select('email').eq('role', 'super_admin')
+  if (recipientError) throw recipientError
+  const emails = (recipients ?? []).map((item) => String(item.email ?? '')).filter(isEmail)
+  if (!resendApiKey || !emails.length) {
+    await admin.from('tawazon_feedback').update({ email_status: 'not_configured', updated_at: new Date().toISOString() }).eq('id', feedback.id)
+    return false
+  }
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: feedbackFromEmail,
+      to: emails,
+      reply_to: profile.email,
+      subject: `Tawazon feedback · ${feedback.rating}/5 · ${feedback.category}`,
+      text: `Feedback from ${profile.display_name} (@${profile.username})\nRating: ${feedback.rating}/5\nCategory: ${feedback.category}\nPage: ${feedback.page ?? 'Not specified'}\nPlatform: ${feedback.platform}\n\n${feedback.message}`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#17352d"><div style="padding:24px;border-radius:18px;background:#eaf4ef"><div style="font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#36735f">Tawazon user feedback</div><h1 style="margin:10px 0 4px;font-size:26px">${feedback.rating}/5 experience</h1><p style="margin:0;color:#64756f">${escapeHtml(profile.display_name)} · @${escapeHtml(profile.username)} · ${escapeHtml(feedback.category)}</p></div><div style="padding:24px"><p style="white-space:pre-wrap;font-size:15px;line-height:1.7">${escapeHtml(feedback.message)}</p><p style="color:#7b8a85;font-size:12px">Page: ${escapeHtml(feedback.page ?? 'Not specified')} · Platform: ${escapeHtml(feedback.platform)}</p></div></div>`,
+    }),
+  })
+  if (!response.ok) {
+    const reason = (await response.text()).slice(0, 400)
+    await admin.from('tawazon_feedback').update({ email_status: 'failed', email_error: reason, updated_at: new Date().toISOString() }).eq('id', feedback.id)
+    return false
+  }
+  await admin.from('tawazon_feedback').update({ email_status: 'sent', email_error: null, updated_at: new Date().toISOString() }).eq('id', feedback.id)
+  return true
+}
+
+async function submitFeedback(userId: string, body: Record<string, unknown>) {
+  const rating = Number(body.rating)
+  const category = String(body.category ?? '')
+  const message = String(body.message ?? '').trim()
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new HttpError(400, 'Choose a rating from 1 to 5.')
+  if (!feedbackCategories.has(category)) throw new HttpError(400, 'Choose a feedback category.')
+  if (message.length < 10 || message.length > 2000) throw new HttpError(400, 'Feedback must contain between 10 and 2,000 characters.')
+  const profile = await profileById(userId)
+  const { data, error } = await admin.from('tawazon_feedback').insert({ user_id: userId, rating, category, message, page: pageValue(body.page), platform: platformValue(body.platform) }).select('*').single()
+  if (error) throw error
+  const feedback = data as FeedbackRow
+  const emailSent = await deliverFeedbackEmail(feedback, profile).catch(async (caught) => {
+    await admin.from('tawazon_feedback').update({ email_status: 'failed', email_error: String(caught instanceof Error ? caught.message : caught).slice(0, 400), updated_at: new Date().toISOString() }).eq('id', feedback.id)
+    return false
+  })
+  await recordActivity(userId, 'feedback_submitted', pageValue(body.page), platformValue(body.platform), { category, rating }).catch(() => undefined)
+  return { submitted: true, emailSent }
+}
+
+async function adminOverview(userId: string) {
+  await requireSuperAdmin(userId)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const [profilesResult, eventsResult, activeResult, feedbackResult] = await Promise.all([
+    admin.from('tawazon_profiles').select('id,username,email,display_name,role,created_at').order('created_at', { ascending: false }),
+    admin.from('tawazon_activity_events').select('id,user_id,event_type,page,platform,metadata,created_at,user:tawazon_profiles(username,display_name,email)').order('created_at', { ascending: false }).limit(150),
+    admin.from('tawazon_activity_events').select('user_id').gte('created_at', oneDayAgo).limit(2000),
+    admin.from('tawazon_feedback').select('id,user_id,rating,category,message,page,platform,status,email_status,created_at,updated_at,user:tawazon_profiles(username,display_name,email)').order('created_at', { ascending: false }).limit(100),
+  ])
+  const firstError = profilesResult.error ?? eventsResult.error ?? activeResult.error ?? feedbackResult.error
+  if (firstError) throw firstError
+  const feedback = feedbackResult.data ?? []
+  return {
+    summary: {
+      totalUsers: profilesResult.data?.length ?? 0,
+      active24h: new Set((activeResult.data ?? []).map((event) => event.user_id).filter(Boolean)).size,
+      events7d: (eventsResult.data ?? []).filter((event) => event.created_at >= sevenDaysAgo).length,
+      newFeedback: feedback.filter((item) => item.status === 'new').length,
+    },
+    users: profilesResult.data ?? [],
+    events: eventsResult.data ?? [],
+    feedback,
+    feedbackEmailConfigured: Boolean(resendApiKey),
+  }
+}
+
+async function updateFeedbackStatus(userId: string, feedbackId: string, body: Record<string, unknown>) {
+  await requireSuperAdmin(userId)
+  const status = String(body.status ?? '')
+  if (status !== 'new' && status !== 'reviewed' && status !== 'resolved') throw new HttpError(400, 'Choose a valid feedback status.')
+  const { data, error } = await admin.from('tawazon_feedback').update({ status, updated_at: new Date().toISOString() }).eq('id', feedbackId).select('*').maybeSingle()
+  if (error) throw error
+  if (!data) throw new HttpError(404, 'Feedback item not found.')
+  return { feedback: data }
 }
 
 async function workoutVideoSource(userId: string) {
@@ -426,6 +568,7 @@ async function setWorkoutPreference(userId: string, body: Record<string, unknown
   if (mode !== 'default' && mode !== 'custom') throw new HttpError(400, 'Choose the default plan or your own video library.')
   const { data, error } = await admin.from('tawazon_profiles').update({ workout_mode: mode, workout_source_user_id: null, updated_at: new Date().toISOString() }).eq('id', userId).select('*').single()
   if (error) throw error
+  await recordActivity(userId, 'workout_preference_changed', 'workouts', 'unknown', { mode }).catch(() => undefined)
   return { account: publicAccount(data as ProfileRow) }
 }
 
@@ -553,7 +696,7 @@ Deno.serve(async (request) => {
     if (!supabaseUrl || !serviceRoleKey || !publishableKey) throw new Error('Supabase function environment is incomplete.')
     const url = new URL(request.url)
     const path = apiPath(url)
-    if (request.method === 'GET' && path === '/health') return json(200, { ok: true, database: 'supabase-postgres', emailConfigured: true, privateMedia: true })
+    if (request.method === 'GET' && path === '/health') return json(200, { ok: true, database: 'supabase-postgres', emailConfigured: true, feedbackEmailConfigured: Boolean(resendApiKey), privateMedia: true })
 
     if (request.method === 'POST' && path === '/v1/auth/register') return json(201, await register(await readJson(request)))
     if (request.method === 'POST' && path === '/v1/auth/login') return json(200, await login(await readJson(request)))
@@ -570,6 +713,9 @@ Deno.serve(async (request) => {
     if (request.method === 'GET' && path === '/v1/state') return json(200, await loadState(session.userId))
     if (request.method === 'PATCH' && path === '/v1/state') return json(200, await mergeState(session.userId, await readJson(request)))
     if (request.method === 'PATCH' && path === '/v1/account') return json(200, await updateProfile(session.userId, session.tokenHash, await readJson(request)))
+    if (request.method === 'POST' && path === '/v1/activity') return json(201, await submitClientActivity(session.userId, await readJson(request)))
+    if (request.method === 'POST' && path === '/v1/feedback') return json(201, await submitFeedback(session.userId, await readJson(request)))
+    if (request.method === 'GET' && path === '/v1/admin/overview') return json(200, await adminOverview(session.userId))
     if (request.method === 'PATCH' && path === '/v1/workout-preference') return json(200, await setWorkoutPreference(session.userId, await readJson(request)))
     if (request.method === 'GET' && path === '/v1/training/videos') return json(200, await listVideos(session.userId))
     if (request.method === 'POST' && path === '/v1/training/videos') return json(201, await prepareVideoUpload(session.userId, await readJson(request)))
@@ -581,6 +727,8 @@ Deno.serve(async (request) => {
     const videoMatch = /^\/v1\/training\/videos\/([a-f0-9-]+)$/.exec(path)
     if (request.method === 'PATCH' && videoMatch) return json(200, await moveVideo(session.userId, videoMatch[1], await readJson(request)))
     if (request.method === 'DELETE' && videoMatch) return json(200, await deleteVideo(session.userId, videoMatch[1]))
+    const feedbackMatch = /^\/v1\/admin\/feedback\/([a-f0-9-]+)$/.exec(path)
+    if (request.method === 'PATCH' && feedbackMatch) return json(200, await updateFeedbackStatus(session.userId, feedbackMatch[1], await readJson(request)))
     throw new HttpError(404, 'Not found.')
   } catch (error) {
     const status = error instanceof HttpError ? error.status : 500

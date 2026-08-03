@@ -38,6 +38,49 @@ export interface CloudTrainingVideo {
   createdAt: string
 }
 
+export interface AdminUserSummary {
+  id: string
+  username: string
+  email: string
+  display_name: string
+  role: 'user' | 'super_admin'
+  created_at: string
+}
+
+export interface AdminActivityEvent {
+  id: number | string
+  user_id: string | null
+  event_type: string
+  page: string | null
+  platform: 'web' | 'ios' | 'android' | 'unknown'
+  metadata: Record<string, unknown>
+  created_at: string
+  user?: { username: string; display_name: string; email: string } | null
+}
+
+export interface AdminFeedback {
+  id: string
+  user_id: string
+  rating: number
+  category: string
+  message: string
+  page: string | null
+  platform: 'web' | 'ios' | 'android' | 'unknown'
+  status: 'new' | 'reviewed' | 'resolved'
+  email_status: 'pending' | 'sent' | 'not_configured' | 'failed'
+  created_at: string
+  updated_at: string
+  user?: { username: string; display_name: string; email: string } | null
+}
+
+export interface AdminOverview {
+  summary: { totalUsers: number; active24h: number; events7d: number; newFeedback: number }
+  users: AdminUserSummary[]
+  events: AdminActivityEvent[]
+  feedback: AdminFeedback[]
+  feedbackEmailConfigured: boolean
+}
+
 interface PreparedTrainingVideo {
   video: CloudTrainingVideo
   upload: { path: string; token: string; signedUrl: string }
@@ -73,6 +116,10 @@ export async function cloudEmailReset(identifier: string, code: string, password
 export async function loadCloudState() { if (!baseUrl || !await getToken()) return null; try { return await request<CloudState>('/v1/state') } catch { return null } }
 export async function saveCloudState(state: Record<string, unknown>) { if (!baseUrl || !await getToken()) return null; return request<CloudState>('/v1/state', { method: 'PATCH', body: JSON.stringify({ state }) }) }
 export async function updateCloudAccount(input: Partial<AccountUpdateInput>) { if (!baseUrl || !await getToken()) return null; return request<{ account: UserAccount; passwordChanged?: boolean }>('/v1/account', { method: 'PATCH', body: JSON.stringify(input) }) }
+export async function recordCloudActivity(eventType: 'app_open' | 'page_view', page?: string, platform: 'ios' | 'android' | 'unknown' = 'unknown') { if (!baseUrl || !await getToken()) return false; await request('/v1/activity', { method: 'POST', body: JSON.stringify({ eventType, page, platform }) }); return true }
+export async function submitCloudFeedback(input: { rating: number; category: string; message: string; page?: string; platform: 'ios' | 'android' | 'unknown' }) { return request<{ submitted: boolean; emailSent: boolean }>('/v1/feedback', { method: 'POST', body: JSON.stringify(input) }) }
+export async function loadCloudAdminOverview() { return request<AdminOverview>('/v1/admin/overview') }
+export async function updateCloudFeedbackStatus(feedbackId: string, status: AdminFeedback['status']) { return request<{ feedback: AdminFeedback }>(`/v1/admin/feedback/${encodeURIComponent(feedbackId)}`, { method: 'PATCH', body: JSON.stringify({ status }) }) }
 export async function listCloudTrainingVideos() {
   if (!baseUrl || !await getToken()) throw new Error('Sign in to your cloud account to load training videos.')
   return request<{ videos: CloudTrainingVideo[]; editable: boolean }>('/v1/training/videos')

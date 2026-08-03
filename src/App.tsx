@@ -11,13 +11,14 @@ import { ProfilePage } from './pages/ProfilePage'
 import { ProgressPage } from './pages/ProgressPage'
 import { ScannerPage } from './pages/ScannerPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { AdminPage } from './pages/AdminPage'
 import { TodayPage } from './pages/TodayPage'
 import { WeekPage } from './pages/WeekPage'
 import { WorkoutsPage } from './pages/WorkoutsPage'
 import { accountStorageKey, getCurrentAccount, saveDietPlan, signOut, subscribeToAuthChanges, updateAccount, updateAccountDetails } from './services/auth'
 import { flushAutosave, pauseAutosave, pendingAutosaveState, queueAutosave } from './services/autosave'
 import { buildMealGroups } from './services/dietPlan'
-import { loadCloudState } from './services/cloud'
+import { loadCloudState, recordCloudActivity } from './services/cloud'
 import { defaultReminderSettings, getNotificationPermission, requestNotificationPermission, sendReminderNotification } from './services/reminders'
 import type { FoodProduct, FruitMap, HabitId, HabitMap, ImportedDietPlan, Language, PlanPreset, ReminderSettings, SelectionMap, SportPreference, ThemeMode, UserAccount, UserProfile, View, WeightEntry } from './types'
 import { buildWeek, createDefaultSelections, createRandomWeek, getDayTotals, normalizeSelectionMap } from './utils'
@@ -38,7 +39,7 @@ const defaultProfile: UserProfile = {
   goalWeeks: 16,
 }
 
-const validViews = new Set<View>(['today', 'plan', 'week', 'habits', 'scanner', 'workouts', 'progress', 'profile', 'settings'])
+const validViews = new Set<View>(['today', 'plan', 'week', 'habits', 'scanner', 'workouts', 'progress', 'profile', 'settings', 'admin'])
 
 function defaultFruitMap(dayIds: string[]): FruitMap {
   return Object.fromEntries(dayIds.map((id, index) => [id, [fruits[(index * 2) % fruits.length].id, fruits[(index * 2 + 1) % fruits.length].id]]))
@@ -93,7 +94,7 @@ function DietApp({ account, onAccountChange, onLogout }: DietAppProps) {
   }), [account.displayName, account.dietPlan])
   const storageKey = (key: string) => accountStorageKey(account.id, key)
   const [storedView, setView] = useLocalStorage<View>(storageKey('active-view-v1'), 'today')
-  const view = validViews.has(storedView) ? storedView : 'today'
+  const view = validViews.has(storedView) && (storedView !== 'admin' || account.isSuperAdmin) ? storedView : 'today'
   const [importingPlan, setImportingPlan] = useState(false)
   const [selectedDayId, setSelectedDayId] = useState(days[0].id)
   const [openMeal, setOpenMeal] = useState<string | null>('breakfast')
@@ -121,6 +122,9 @@ function DietApp({ account, onAccountChange, onLogout }: DietAppProps) {
     { date: dateDaysAgo(0), value: 82.4 },
   ])
   const [cloudHydrated, setCloudHydrated] = useState(false)
+
+  useEffect(() => { void recordCloudActivity('app_open', view).catch(() => undefined) }, [account.id])
+  useEffect(() => { void recordCloudActivity('page_view', view).catch(() => undefined) }, [account.id, view])
 
   useEffect(() => {
     let active = true
@@ -405,10 +409,13 @@ function DietApp({ account, onAccountChange, onLogout }: DietAppProps) {
     case 'settings':
       page = <SettingsPage profile={profile} language={language} theme={theme} account={account} reminders={reminders} notificationPermission={notificationPermission} onProfileChange={(next) => { setProfile(next); if (next.name.trim().length >= 2 && next.name.trim() !== account.displayName) onAccountChange(updateAccount(account.id, { displayName: next.name.trim() })) }} onLanguageChange={setLanguage} onThemeChange={setTheme} onReminderChange={setReminders} onEnableNotifications={enableNotifications} onTestNotification={() => sendReminderNotification(language === 'ar' ? '💧 تذكير تجريبي' : '💧 Test reminder', language === 'ar' ? 'تعمل إشعارات توازن بشكل صحيح.' : 'Tawazon notifications are working correctly.', 'tawazon-test')} onOpenPlanImport={() => setImportingPlan(true)} onLogout={() => void logoutSafely()} />
       break
+    case 'admin':
+      page = account.isSuperAdmin ? <AdminPage /> : <TodayPage dayId={days[0].id} mealGroups={mealGroups} selections={selections} totals={todayTotals} weeklyTotals={weeklyTotals} profile={profile} water={waterMap[days[0].id] ?? 0} habitStreak={habitStreak} onWaterChange={(value) => setWaterMap((current) => ({ ...current, [days[0].id]: value }))} onOpenPlan={() => { setSelectedDayId(days[0].id); changeView('plan') }} onOpenProgress={() => changeView('progress')} />
+      break
     default:
       page = <TodayPage dayId={days[0].id} mealGroups={mealGroups} selections={selections} totals={todayTotals} weeklyTotals={weeklyTotals} profile={profile} water={waterMap[days[0].id] ?? 0} habitStreak={habitStreak} onWaterChange={(value) => setWaterMap((current) => ({ ...current, [days[0].id]: value }))} onOpenPlan={() => { setSelectedDayId(days[0].id); changeView('plan') }} onOpenProgress={() => changeView('progress')} />
   }
 
   const displayName = language === 'ar' ? profile.name || 'مستخدم' : profile.name === 'محمد' ? 'Mohammed' : profile.name || 'User'
-  return <Layout view={view} onViewChange={changeView} darkMode={darkMode} onToggleTheme={() => setTheme(darkMode ? 'light' : 'dark')} userName={displayName} currentDate={language === 'ar' ? days[0].date : days[0].dateEn} language={language} onLogout={() => void logoutSafely()}>{page}</Layout>
+  return <Layout view={view} onViewChange={changeView} darkMode={darkMode} onToggleTheme={() => setTheme(darkMode ? 'light' : 'dark')} userName={displayName} currentDate={language === 'ar' ? days[0].date : days[0].dateEn} language={language} onLogout={() => void logoutSafely()} isSuperAdmin={account.isSuperAdmin}>{page}</Layout>
 }
