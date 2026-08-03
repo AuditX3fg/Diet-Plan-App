@@ -80,15 +80,22 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character])
 }
 
-async function sendEmail({ to, displayName, code, kind, idempotencyKey }) {
+async function sendEmail({ to, displayName, username, code, kind, idempotencyKey }) {
   if (!resendApiKey || !fromEmail) throw new HttpError(503, 'Email delivery is not configured on the recovery server.')
   const firstName = escapeHtml(displayName || 'there')
+  const safeUsername = escapeHtml(username || '')
   const safeCode = escapeHtml(code)
   const isInitial = kind === 'initial'
-  const subject = isInitial ? 'Your Tawazon recovery code' : 'Your Tawazon password reset code'
+  const subject = isInitial ? 'Welcome to Tawazon — your account is ready' : 'Your Tawazon password reset code'
   const explanation = isInitial
-    ? 'Keep this offline recovery code somewhere private. You can use it if you ever lose access to your password.'
+    ? 'Your private nutrition workspace is ready. Keep the offline recovery code below somewhere secure; it can restore access if you forget your password.'
     : 'Enter this six-digit code in Tawazon to choose a new password. It expires in 15 minutes and can only be tried five times.'
+  const text = isInitial
+    ? `Hello ${displayName || 'there'},\n\nWelcome to Tawazon. Your private nutrition workspace is ready.\n\nUSERNAME\n@${username}\n\nPASSWORD\nThe password you created (Tawazon never emails or stores it in readable form)\n\nOFFLINE RECOVERY CODE\n${code}\n\nStore this code somewhere private. Anyone with this code may be able to reset your password.\n\nYour plan, your way.\nTawazon`
+    : `Hello ${displayName || 'there'},\n\n${explanation}\n\nCode: ${code}\n\nIf you did not request this, you can ignore this email.`
+  const html = isInitial
+    ? `<div style="margin:0;padding:34px 16px;background:#f4f2eb;font-family:Arial,sans-serif;color:#15362e"><div style="max-width:560px;margin:auto;overflow:hidden;border:1px solid #dfe8e3;border-radius:24px;background:#ffffff;box-shadow:0 18px 50px rgba(23,60,50,.10)"><div style="padding:30px 34px;background:linear-gradient(135deg,#173c32,#2f8069);color:#ffffff"><div style="font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;opacity:.78">Tawazon</div><h1 style="margin:10px 0 5px;font-size:30px;line-height:1.15">Welcome, ${firstName}.</h1><p style="margin:0;font-size:14px;line-height:1.6;opacity:.88">Your private nutrition workspace is ready.</p></div><div style="padding:30px 34px"><p style="margin:0 0 22px;color:#5f716b;font-size:14px;line-height:1.7">Use these details to access your account. Your password is deliberately not included because Tawazon never stores it in readable form.</p><div style="margin-bottom:12px;padding:16px 18px;border:1px solid #e0e8e4;border-radius:14px;background:#f8faf9"><div style="color:#7b8a85;font-size:10px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase">Username</div><div style="margin-top:6px;font-size:18px;font-weight:800">@${safeUsername}</div></div><div style="margin-bottom:22px;padding:16px 18px;border:1px solid #e0e8e4;border-radius:14px;background:#f8faf9"><div style="color:#7b8a85;font-size:10px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase">Password</div><div style="margin-top:6px;font-size:14px;font-weight:700">The password you created</div><div style="margin-top:4px;color:#7b8a85;font-size:11px">Not emailed or stored in readable form</div></div><div style="padding:22px;border-radius:16px;background:#eaf4ef;text-align:center"><div style="color:#36735f;font-size:10px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase">Offline recovery code</div><div style="margin-top:10px;color:#173c32;font-family:monospace;font-size:27px;font-weight:900;letter-spacing:4px">${safeCode}</div></div><p style="margin:18px 0 0;color:#a05449;font-size:12px;line-height:1.6"><strong>Keep this code private.</strong> Anyone with it may be able to reset your password.</p></div><div style="padding:18px 34px;border-top:1px solid #edf1ef;color:#7b8a85;font-size:11px;text-align:center">Your plan, your way · Tawazon</div></div></div>`
+    : `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#17352d"><h1 style="font-size:24px">Tawazon</h1><p>Hello ${firstName},</p><p>${explanation}</p><div style="font-size:30px;font-weight:800;letter-spacing:5px;background:#eef6f2;padding:18px;border-radius:12px;text-align:center">${safeCode}</div><p style="color:#64756f;font-size:13px">If you did not request this, you can ignore this email.</p></div>`
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -100,8 +107,8 @@ async function sendEmail({ to, displayName, code, kind, idempotencyKey }) {
       from: fromEmail,
       to: [to],
       subject,
-      text: `Hello ${displayName || 'there'},\n\n${explanation}\n\nCode: ${code}\n\nIf you did not request this, you can ignore this email.`,
-      html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#17352d"><h1 style="font-size:24px">Tawazon</h1><p>Hello ${firstName},</p><p>${explanation}</p><div style="font-size:30px;font-weight:800;letter-spacing:5px;background:#eef6f2;padding:18px;border-radius:12px;text-align:center">${safeCode}</div><p style="color:#64756f;font-size:13px">If you did not request this, you can ignore this email.</p></div>`,
+      text,
+      html,
       tags: [{ name: 'category', value: isInitial ? 'recovery_backup' : 'password_reset' }],
     }),
   })
@@ -185,6 +192,7 @@ async function registerAccount(body) {
       await sendEmail({
         to: prepared.account.email,
         displayName: prepared.account.displayName,
+        username: prepared.account.username,
         code: initialRecoveryCode,
         kind: 'initial',
         idempotencyKey: `initial-${prepared.account.id}-${prepared.account.initialRecoverySentAt}`,
@@ -227,6 +235,7 @@ async function requestRecovery(body) {
     await sendEmail({
       to: prepared.email,
       displayName: prepared.displayName,
+      username: identifier,
       code: generatedCode,
       kind: 'reset',
       idempotencyKey: `reset-${prepared.accountId}-${now}`,

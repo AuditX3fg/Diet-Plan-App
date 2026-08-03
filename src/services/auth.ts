@@ -1,4 +1,5 @@
 import type { ImportedDietPlan, UserAccount } from '../types'
+import { sendWelcomeEmail } from './recoveryEmail'
 
 const ACCOUNTS_KEY = 'tawazon-accounts-v1'
 const SESSION_KEY = 'tawazon-session-v1'
@@ -87,15 +88,18 @@ export function getCurrentAccount(): UserAccount | null {
   }
 }
 
-export async function createAccount(input: { displayName: string; username: string; password: string }) {
+export async function createAccount(input: { displayName: string; username: string; email: string; password: string }) {
   const displayName = input.displayName.trim()
   const username = input.username.trim().toLowerCase()
+  const email = input.email.trim().toLowerCase()
   if (displayName.length < 2) throw new Error('Enter your full name.')
   if (!/^[a-z0-9._-]{3,24}$/.test(username)) throw new Error('Username must be 3–24 characters using letters, numbers, dots, dashes, or underscores.')
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new Error('Enter a valid email address.')
   if (input.password.length < 8) throw new Error('Password must contain at least 8 characters.')
 
   const accounts = loadAccounts()
   if (accounts.some((account) => account.username === username)) throw new Error('That username is already in use.')
+  if (accounts.some((account) => account.email === email)) throw new Error('That email is already connected to an account.')
 
   const passwordSalt = randomToken()
   const recoverySalt = randomToken()
@@ -103,6 +107,7 @@ export async function createAccount(input: { displayName: string; username: stri
   const account: StoredAccount = {
     id: window.crypto.randomUUID?.() ?? `${Date.now()}-${randomToken(6)}`,
     username,
+    email,
     displayName,
     createdAt: new Date().toISOString(),
     passwordHash: await hashSecret(input.password, passwordSalt),
@@ -112,7 +117,10 @@ export async function createAccount(input: { displayName: string; username: stri
   }
   saveAccounts([...accounts, account])
   setSession(account.id)
-  return { account: publicAccount(account), recoveryCode: code }
+  const safeAccount = publicAccount(account)
+  let welcomeEmailSent = false
+  try { welcomeEmailSent = await sendWelcomeEmail(safeAccount, code) } catch { /* The offline account remains usable. */ }
+  return { account: safeAccount, recoveryCode: code, welcomeEmailSent }
 }
 
 export async function signIn(usernameInput: string, password: string) {

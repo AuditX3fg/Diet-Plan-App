@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { ArrowLeft, Check, Copy, Eye, EyeOff, KeyRound, Leaf, LockKeyhole, LogIn, ShieldCheck, UserPlus } from 'lucide-react'
+import { ArrowLeft, Check, Copy, Eye, EyeOff, KeyRound, Leaf, LockKeyhole, LogIn, Mail, ShieldCheck, UserPlus } from 'lucide-react'
 import { createAccount, resetPassword, signIn } from '../services/auth'
 import type { UserAccount } from '../types'
 
@@ -13,11 +13,13 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
   const [mode, setMode] = useState<AuthMode>('signin')
   const [displayName, setDisplayName] = useState('')
   const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [recoveryCode, setRecoveryCode] = useState('')
   const [createdAccount, setCreatedAccount] = useState<UserAccount | null>(null)
   const [generatedCode, setGeneratedCode] = useState('')
+  const [welcomeEmailSent, setWelcomeEmailSent] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -42,9 +44,10 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
       if (mode === 'signin') {
         onAuthenticated(await signIn(username, password))
       } else if (mode === 'signup') {
-        const result = await createAccount({ displayName, username, password })
+        const result = await createAccount({ displayName, username, email, password })
         setCreatedAccount(result.account)
         setGeneratedCode(result.recoveryCode)
+        setWelcomeEmailSent(result.welcomeEmailSent)
       } else {
         onAuthenticated(await resetPassword({ username, recoveryCode, password }))
       }
@@ -67,9 +70,9 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
           <span className="auth-brand-mark"><ShieldCheck size={27} /></span>
           <p className="auth-kicker">Account created</p>
           <h1>Save your recovery code</h1>
-          <p>This is the only way to reset your password. Store it somewhere private before continuing.</p>
+          <p>{welcomeEmailSent ? `A professional welcome email with your username and offline recovery code was sent to ${createdAccount.email}.` : 'Email delivery is not configured or was unavailable. Store this code somewhere private before continuing.'}</p>
           <div className="recovery-code"><code>{generatedCode}</code><button onClick={copyRecoveryCode} aria-label="Copy recovery code">{copied ? <Check size={18} /> : <Copy size={18} />}</button></div>
-          <div className="auth-security-note"><LockKeyhole size={17} /><span>Passwords and recovery codes are stored as one-way hashes. The original values cannot be displayed later.</span></div>
+          <div className="auth-security-note"><LockKeyhole size={17} /><span>Your password is stored only as a one-way hash and is never included in email. Keep the offline recovery code private.</span></div>
           <button className="auth-submit" onClick={() => onAuthenticated(createdAccount)}>I saved the code <ArrowLeft size={17} /></button>
         </section>
       </main>
@@ -100,6 +103,7 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
 
         <form className="auth-form" onSubmit={submit}>
           {mode === 'signup' && <label><span>Full name</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} autoComplete="name" placeholder="Your name" required /></label>}
+          {mode === 'signup' && <label><span>Recovery email</span><div className="password-input"><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoCapitalize="none" autoComplete="email" placeholder="you@example.com" required /><span aria-hidden="true"><Mail size={17} /></span></div></label>}
           <label><span>Username</span><input value={username} onChange={(event) => setUsername(event.target.value)} autoCapitalize="none" autoComplete="username" placeholder="e.g. mohammed" required /></label>
           {mode === 'reset' && <label><span>Recovery code</span><input value={recoveryCode} onChange={(event) => setRecoveryCode(event.target.value)} autoCapitalize="characters" autoComplete="off" placeholder="XXXX-XXXX-XXXX" required /></label>}
           <label><span>{mode === 'reset' ? 'New password' : 'Password'}</span><div className="password-input"><input type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} placeholder="At least 8 characters" required /><button type="button" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>

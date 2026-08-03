@@ -17,7 +17,7 @@ This repository now contains two clients: the original responsive web app and a 
 - Goal-aware workout schedules for eight sport preferences, with exercise references
 - Camera/gallery barcode detection, product lookup, offline examples, history, and shopping list
 - Arabic/English/French navigation plus light, dark, and system themes
-- Username/password accounts with one-way password hashing and recovery-code password reset
+- Username/password accounts with one-way password hashing, recovery codes, and optional welcome-email delivery
 - Per-account profiles, preferences, progress, meal selections, and upload history
 - Local PDF diet-plan import with editable calorie/macro targets and four-meal extraction
 - Automatic account-scoped persistence with `localStorage`
@@ -25,6 +25,8 @@ This repository now contains two clients: the original responsive web app and a 
 ## Account and PDF flow
 
 New users create a profile, save the one-time recovery code, and are then prompted to upload a text-based PDF diet plan. The importer extracts daily calories, protein, carbohydrates, fat, breakfast, snack, lunch, dinner, and common plan notes. Extracted targets remain editable before the plan is loaded. A connected plan can be replaced later from Settings.
+
+The signup form also collects a recovery email. When `VITE_RECOVERY_API_URL` points to the included recovery service, the user receives a branded welcome email containing the username and offline recovery code. Passwords are intentionally excluded from email and remain available only to the user who created them.
 
 PDF parsing happens in the browser. The PDF file itself is not retained; only the extracted plan data is saved to the active account.
 
@@ -58,6 +60,8 @@ See [`mobile/README.md`](./mobile/README.md) for device testing and store-build 
 npm run build
 npm run preview
 ```
+
+Set the GitHub Actions repository variable `RECOVERY_API_URL` to the public HTTPS URL of `mobile/recovery-server` to enable welcome-email delivery in the published web app. Configure the server with a verified Resend sender as documented in [`mobile/recovery-server/README.md`](./mobile/recovery-server/README.md).
 
 ## Structure
 

@@ -134,6 +134,7 @@ export interface ImportedDietPlan {
 export interface UserAccount {
   id: string
   username: string
+  email?: string
   displayName: string
   createdAt: string
   dietPlan?: ImportedDietPlan
