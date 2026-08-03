@@ -19,20 +19,62 @@ interface ProgressPageProps {
   onAddWeight: (weight: number) => void
 }
 
+interface ChartPoint {
+  x: number
+  y: number
+  value: number
+  date: string
+}
+
+function smoothLine(points: ChartPoint[]) {
+  if (!points.length) return ''
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`
+  return points.slice(0, -1).reduce((path, point, index) => {
+    const previous = points[index - 1] ?? point
+    const next = points[index + 1]
+    const afterNext = points[index + 2] ?? next
+    const controlOneX = point.x + (next.x - previous.x) / 6
+    const controlOneY = point.y + (next.y - previous.y) / 6
+    const controlTwoX = next.x - (afterNext.x - point.x) / 6
+    const controlTwoY = next.y - (afterNext.y - point.y) / 6
+    return `${path} C ${controlOneX} ${controlOneY}, ${controlTwoX} ${controlTwoY}, ${next.x} ${next.y}`
+  }, `M ${points[0].x} ${points[0].y}`)
+}
+
 export function ProgressPage({ days, weeklyTotals, profile, weightEntries, onAddWeight }: ProgressPageProps) {
   const [weight, setWeight] = useState(String(profile.weight))
   const averageCalories = Math.round(weeklyTotals.reduce((sum, day) => sum + day.calories, 0) / weeklyTotals.length)
   const latestWeight = weightEntries.at(-1)?.value ?? profile.weight
   const firstWeight = weightEntries[0]?.value ?? latestWeight
   const change = latestWeight - firstWeight
+  const weeklyRate = weightEntries.length > 1 ? change / Math.max(1, (new Date(`${weightEntries.at(-1)?.date}T12:00:00`).getTime() - new Date(`${weightEntries[0]?.date}T12:00:00`).getTime()) / 604_800_000) : 0
 
-  const points = useMemo(() => {
+  const chart = useMemo(() => {
     const values = weightEntries.map((entry) => entry.value)
-    const min = Math.min(...values) - 0.5
-    const max = Math.max(...values) + 0.5
+    const rawMin = Math.min(...values, profile.weight)
+    const rawMax = Math.max(...values, profile.weight)
+    const padding = Math.max(0.6, (rawMax - rawMin) * 0.2)
+    const min = Math.floor((rawMin - padding) * 2) / 2
+    const max = Math.ceil((rawMax + padding) * 2) / 2
     const range = Math.max(1, max - min)
-    return values.map((value, index) => ({ x: values.length === 1 ? 50 : (index / (values.length - 1)) * 100, y: 88 - ((value - min) / range) * 70 }))
-  }, [weightEntries])
+    const points = weightEntries.map((entry, index) => ({
+      x: values.length === 1 ? 52 : 6 + (index / (values.length - 1)) * 92,
+      y: 88 - ((entry.value - min) / range) * 76,
+      value: entry.value,
+      date: entry.date,
+    }))
+    const line = smoothLine(points)
+    return {
+      min,
+      max,
+      range,
+      points,
+      line,
+      area: line && points.length > 1 ? `${line} L ${points.at(-1)?.x} 94 L ${points[0].x} 94 Z` : '',
+      ticks: Array.from({ length: 4 }, (_, index) => max - (range * index) / 3),
+      goalY: profile.targetWeight >= min && profile.targetWeight <= max ? 88 - ((profile.targetWeight - min) / range) * 76 : null,
+    }
+  }, [profile.targetWeight, profile.weight, weightEntries])
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -56,15 +98,26 @@ export function ProgressPage({ days, weeklyTotals, profile, weightEntries, onAdd
       <section className="charts-grid">
         <div className="weight-chart card-surface">
           <div className="section-heading"><div><p className="eyebrow">{tr('رحلة الوزن', 'Weight journey')}</p><h2>{tr('تغيّر الوزن', 'Weight change')}</h2></div><span className="chart-badge">{tr('آخر', 'Last')} {toArabicNumber(weightEntries.length)} {tr('قياسات', 'entries')}</span></div>
+          <div className="weight-chart-summary">
+            <div><small>{tr('التغيّر الكلي', 'Total change')}</small><b className={change <= 0 ? 'good' : 'warn'}>{change > 0 ? '+' : ''}{toArabicNumber(change.toFixed(1))} kg</b></div>
+            <div><small>{tr('المعدل الأسبوعي', 'Weekly rate')}</small><b>{weeklyRate > 0 ? '+' : ''}{toArabicNumber(weeklyRate.toFixed(1))} kg</b></div>
+            <div><small>{tr('إلى الهدف', 'To goal')}</small><b>{toArabicNumber(Math.abs(latestWeight - profile.targetWeight).toFixed(1))} kg</b></div>
+          </div>
           <div className="line-chart">
-            <div className="chart-grid"><i /><i /><i /><i /></div>
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label={tr('مخطط تغيّر الوزن', 'Weight change chart')}>
-              <defs><linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--accent)" stopOpacity=".25" /><stop offset="100%" stopColor="var(--accent)" stopOpacity="0" /></linearGradient></defs>
-              {points.length > 1 && <polygon points={`0,100 ${points.map((point) => `${point.x},${point.y}`).join(' ')} 100,100`} fill="url(#areaGradient)" />}
-              {points.length > 1 && <polyline points={points.map((point) => `${point.x},${point.y}`).join(' ')} fill="none" stroke="var(--accent)" strokeWidth="2.4" vectorEffect="non-scaling-stroke" />}
-              {points.map((point, index) => <circle key={index} cx={point.x} cy={point.y} r="1.8" fill="var(--surface)" stroke="var(--accent)" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />)}
-            </svg>
-            <div className="chart-labels">{weightEntries.map((entry) => <span key={`${entry.date}-${entry.value}`}>{new Intl.DateTimeFormat(localeCode(), { day: 'numeric', month: 'short' }).format(new Date(`${entry.date}T12:00:00`))}</span>)}</div>
+            <div className="chart-y-axis">{chart.ticks.map((tick) => <span key={tick}>{toArabicNumber(tick.toFixed(1))}</span>)}</div>
+            <div className="chart-plot">
+              <div className="chart-grid">{chart.ticks.map((tick) => <i key={tick} />)}</div>
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={tr('مخطط تغيّر الوزن', 'Weight change chart')}>
+                <defs><linearGradient id="weightAreaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--accent)" stopOpacity=".28" /><stop offset="100%" stopColor="var(--accent)" stopOpacity=".015" /></linearGradient><filter id="weightPointShadow" x="-100%" y="-100%" width="300%" height="300%"><feDropShadow dx="0" dy="1" stdDeviation="1" floodColor="var(--accent)" floodOpacity=".3" /></filter></defs>
+                {chart.goalY !== null ? <line className="goal-line" x1="1" x2="99" y1={chart.goalY} y2={chart.goalY} vectorEffect="non-scaling-stroke" /> : null}
+                {chart.area ? <path d={chart.area} fill="url(#weightAreaGradient)" /> : null}
+                {chart.line && chart.points.length > 1 ? <path d={chart.line} fill="none" stroke="var(--accent)" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /> : null}
+                {chart.points.map((point, index) => <g key={`${point.date}-${point.value}`} className={index === chart.points.length - 1 ? 'latest-point' : ''}><ellipse cx={point.x} cy={point.y} rx={index === chart.points.length - 1 ? 0.82 : 0.58} ry={index === chart.points.length - 1 ? 2.4 : 1.7} fill="var(--surface)" stroke="var(--accent)" strokeWidth={index === chart.points.length - 1 ? 2 : 1.3} vectorEffect="non-scaling-stroke" filter={index === chart.points.length - 1 ? 'url(#weightPointShadow)' : undefined} /><title>{new Intl.DateTimeFormat(localeCode(), { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${point.date}T12:00:00`))}: ${point.value} kg</title></g>)}
+              </svg>
+              {chart.goalY !== null ? <span className="goal-line-label" style={{ top: `${chart.goalY}%` }}>{tr('الهدف', 'Goal')} {toArabicNumber(profile.targetWeight)}</span> : null}
+              {!chart.points.length ? <div className="chart-empty">{tr('أضف أول قياس لبدء الرسم البياني.', 'Add your first entry to start the chart.')}</div> : null}
+            </div>
+            <div className="chart-labels">{weightEntries.map((entry, index) => { const labelEvery = Math.max(1, Math.ceil(weightEntries.length / 6)); const visible = index === 0 || index === weightEntries.length - 1 || index % labelEvery === 0; return <span className={visible ? '' : 'chart-label-hidden'} key={`${entry.date}-${entry.value}`}>{new Intl.DateTimeFormat(localeCode(), { day: 'numeric', month: 'short' }).format(new Date(`${entry.date}T12:00:00`))}</span> })}</div>
           </div>
           <form className="weight-form" onSubmit={handleSubmit}>
             <label><span>{tr('سجّل وزنك اليوم', 'Log today’s weight')}</span><div><input type="number" min="30" max="300" step="0.1" value={weight} onChange={(event) => setWeight(event.target.value)} /><small>kg</small></div></label>
