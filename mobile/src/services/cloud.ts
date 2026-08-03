@@ -101,6 +101,9 @@ export async function uploadCloudTrainingVideo(sessionId: CloudTrainingVideo['se
   return completed.video
 }
 export async function deleteCloudTrainingVideo(videoId: string) { return request<{ deleted: boolean }>(`/v1/training/videos/${encodeURIComponent(videoId)}`, { method: 'DELETE' }) }
+export async function moveCloudTrainingVideo(videoId: string, sessionId: CloudTrainingVideo['sessionId']) {
+  return request<{ video: CloudTrainingVideo }>(`/v1/training/videos/${encodeURIComponent(videoId)}`, { method: 'PATCH', body: JSON.stringify({ sessionId }) })
+}
 export async function cloudTrainingVideoSource(videoId: string, title: string): Promise<VideoSource> {
   const currentToken = await getToken()
   if (!baseUrl || !currentToken) throw new Error('Sign in to play this training video.')

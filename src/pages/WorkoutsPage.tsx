@@ -1,9 +1,9 @@
 import { useEffect, useState, type ChangeEvent } from 'react'
-import { Cloud, Dumbbell, ExternalLink, HeartPulse, LoaderCircle, PlayCircle, ShieldCheck, Sparkles, Timer, Trash2, TrendingUp, Upload } from 'lucide-react'
+import { ArrowRightLeft, Cloud, Dumbbell, ExternalLink, HeartPulse, LoaderCircle, PlayCircle, ShieldCheck, Sparkles, Timer, Trash2, TrendingUp, Upload, X } from 'lucide-react'
 import { aliTrainingDays, isAliSaadeAccount, type TrainingDayDefinition } from '../aliTraining'
 import { sportOptions } from '../data'
 import { tr } from '../i18n'
-import { createCloudTrainingVideoUrl, deleteCloudTrainingVideo, listCloudTrainingVideos, uploadCloudTrainingVideo, type CloudTrainingVideo } from '../services/cloud'
+import { createCloudTrainingVideoUrl, deleteCloudTrainingVideo, listCloudTrainingVideos, moveCloudTrainingVideo, uploadCloudTrainingVideo, type CloudTrainingVideo } from '../services/cloud'
 import type { SportPreference, UserProfile } from '../types'
 import { calculateHealthMetrics, toArabicNumber } from '../utils'
 
@@ -44,6 +44,9 @@ function AliTrainingPlan() {
   const [playerLoading, setPlayerLoading] = useState(false)
   const [uploadingDay, setUploadingDay] = useState('')
   const [deletingId, setDeletingId] = useState('')
+  const [movingId, setMovingId] = useState('')
+  const [videoToMove, setVideoToMove] = useState<CloudTrainingVideo | null>(null)
+  const [moveTarget, setMoveTarget] = useState<CloudTrainingVideo['sessionId']>('day-1')
   const [error, setError] = useState('')
   const selectedVideo = videos.find((video) => video.id === activeId) ?? videos[0]
   const selectedDay = aliTrainingDays.find((day) => day.id === selectedVideo?.sessionId)
@@ -113,10 +116,33 @@ function AliTrainingPlan() {
     }
   }
 
+  function openMoveVideo(video: CloudTrainingVideo) {
+    const destination = aliTrainingDays.find((day) => day.id !== video.sessionId)
+    if (!destination) return
+    setVideoToMove(video)
+    setMoveTarget(destination.id)
+  }
+
+  async function confirmMoveVideo() {
+    if (!videoToMove || moveTarget === videoToMove.sessionId) return
+    setMovingId(videoToMove.id)
+    setError('')
+    try {
+      const { video } = await moveCloudTrainingVideo(videoToMove.id, moveTarget)
+      setVideos((current) => current.map((item) => item.id === video.id ? video : item))
+      setActiveId(video.id)
+      setVideoToMove(null)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not move this video.')
+    } finally {
+      setMovingId('')
+    }
+  }
+
   return (
     <div className="workouts-page ali-training-page">
       <section className="feature-intro ali-training-intro">
-        <div><span className="status-pill"><ShieldCheck size={14} /> {tr('مكتبة خاصة', 'Private library')}</span><h2>{tr('جلسات علي التدريبية', 'Ali’s training sessions')}</h2><p>{tr('ارفع فيديوهات كل يوم أو احذفها. تتم مزامنة المكتبة مع حسابك على جميع أجهزتك.', 'Upload or delete videos for each day. Your library stays synchronized with your account on every device.')}</p></div>
+        <div><span className="status-pill"><ShieldCheck size={14} /> {tr('مكتبة خاصة', 'Private library')}</span><h2>{tr('جلسات علي التدريبية', 'Ali’s training sessions')}</h2><p>{tr('ارفع الفيديوهات أو انقلها بين الأيام أو احذفها. تتم مزامنة المكتبة مع حسابك على جميع أجهزتك.', 'Upload, move between days, or delete videos. Your library stays synchronized with your account on every device.')}</p></div>
         <div className="personal-plan-badge"><Cloud size={20} /><span><small>{tr('محفوظ في الحساب', 'Saved to your account')}</small><b>{videos.length} {tr('فيديو', 'videos')}</b></span></div>
       </section>
 
@@ -126,6 +152,15 @@ function AliTrainingPlan() {
 
       {error ? <div className="ali-training-error" role="alert">{error}</div> : null}
 
+      {videoToMove ? <div className="ali-move-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !movingId) setVideoToMove(null) }}>
+        <section className="ali-move-dialog card-surface" role="dialog" aria-modal="true" aria-labelledby="move-video-title">
+          <header><div><small>{tr('إدارة الفيديو', 'Manage video')}</small><h3 id="move-video-title">{tr('نقل إلى فئة أخرى', 'Move to another category')}</h3></div><button onClick={() => setVideoToMove(null)} disabled={Boolean(movingId)} aria-label={tr('إغلاق', 'Close')}><X size={19} /></button></header>
+          <p>{videoToMove.title}</p>
+          <label><span>{tr('الفئة الجديدة', 'New category')}</span><select value={moveTarget} onChange={(event) => setMoveTarget(event.target.value as CloudTrainingVideo['sessionId'])}>{aliTrainingDays.filter((day) => day.id !== videoToMove.sessionId).map((day) => <option key={day.id} value={day.id}>{tr(day.titleAr, day.title)} — {tr(day.focusAr, day.focus)}</option>)}</select></label>
+          <div><button className="soft-btn" onClick={() => setVideoToMove(null)} disabled={Boolean(movingId)}>{tr('إلغاء', 'Cancel')}</button><button className="primary-btn" onClick={() => void confirmMoveVideo()} disabled={Boolean(movingId)}>{movingId ? <LoaderCircle className="spin" size={17} /> : <ArrowRightLeft size={17} />}{movingId ? tr('جارٍ النقل…', 'Moving…') : tr('نقل الفيديو', 'Move video')}</button></div>
+        </section>
+      </div> : null}
+
       <section className="ali-session-grid">
         {aliTrainingDays.map((day) => {
           const dayVideos = videos.filter((video) => video.sessionId === day.id)
@@ -134,7 +169,7 @@ function AliTrainingPlan() {
             <div className="ali-exercise-list">
               {dayVideos.map((video, index) => {
                 const selected = selectedVideo?.id === video.id
-                return <div key={video.id} className={selected ? 'ali-exercise-row active' : 'ali-exercise-row'}><button onClick={() => setActiveId(video.id)} aria-current={selected ? 'true' : undefined}><span>{index + 1}</span><b>{video.title}</b><PlayCircle size={18} /></button><button className="ali-delete-video" onClick={() => void removeVideo(video)} disabled={deletingId === video.id} aria-label={`${tr('حذف', 'Delete')} ${video.title}`}>{deletingId === video.id ? <LoaderCircle className="spin" size={16} /> : <Trash2 size={16} />}</button></div>
+                return <div key={video.id} className={selected ? 'ali-exercise-row active' : 'ali-exercise-row'}><button onClick={() => setActiveId(video.id)} aria-current={selected ? 'true' : undefined}><span>{index + 1}</span><b>{video.title}</b><PlayCircle size={18} /></button><button className="ali-move-video" onClick={() => openMoveVideo(video)} disabled={Boolean(movingId || deletingId)} aria-label={`${tr('نقل', 'Move')} ${video.title}`}><ArrowRightLeft size={16} /></button><button className="ali-delete-video" onClick={() => void removeVideo(video)} disabled={Boolean(deletingId === video.id || movingId)} aria-label={`${tr('حذف', 'Delete')} ${video.title}`}>{deletingId === video.id ? <LoaderCircle className="spin" size={16} /> : <Trash2 size={16} />}</button></div>
               })}
               {!dayVideos.length ? <p className="ali-empty-day">{tr('لا توجد فيديوهات لهذا اليوم بعد.', 'No videos added to this day yet.')}</p> : null}
             </div>

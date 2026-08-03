@@ -491,12 +491,24 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(31, 107, 87,
 .ali-session > header b { font-size: 15px; }
 .ali-session > header em { color: var(--muted); font-size: 12px; font-style: normal; }
 .ali-exercise-list { margin-top: 14px; display: grid; gap: 7px; }
-.ali-exercise-row { display: grid; grid-template-columns: minmax(0, 1fr) 42px; overflow: hidden; border: 1px solid transparent; border-radius: 11px; background: var(--surface-soft); }
+.ali-exercise-row { display: grid; grid-template-columns: minmax(0, 1fr) 42px 42px; overflow: hidden; border: 1px solid transparent; border-radius: 11px; background: var(--surface-soft); }
 .ali-exercise-row:hover { border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); }.ali-exercise-row.active { border-color: color-mix(in srgb, var(--accent) 36%, var(--line)); background: var(--accent-soft); }
 .ali-exercise-row > button:first-child { min-width: 0; min-height: 46px; padding: 7px 10px; display: grid; grid-template-columns: 28px minmax(0, 1fr) 20px; align-items: center; gap: 9px; border: 0; color: var(--text); background: transparent; text-align: start; cursor: pointer; }
 .ali-exercise-row > button:first-child > span { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 8px; color: var(--muted); background: var(--surface); font-size: 12px; font-weight: 800; }
 .ali-exercise-row b { overflow: hidden; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }.ali-exercise-row svg { color: var(--accent); }
-.ali-delete-video { width: 42px; display: grid; place-items: center; border: 0; border-inline-start: 1px solid var(--line); color: #bd5a54; background: transparent; cursor: pointer; }.ali-delete-video:hover { background: color-mix(in srgb, #c45f58 10%, transparent); }.ali-delete-video:disabled { opacity: .55; cursor: wait; }
+.ali-move-video,.ali-delete-video { width: 42px; display: grid; place-items: center; border: 0; border-inline-start: 1px solid var(--line); background: transparent; cursor: pointer; }
+.ali-move-video { color: var(--accent); }.ali-move-video:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.ali-delete-video { color: #bd5a54; }.ali-delete-video:hover { background: color-mix(in srgb, #c45f58 10%, transparent); }
+.ali-move-video:disabled,.ali-delete-video:disabled { opacity: .55; cursor: wait; }
+.ali-move-overlay { position: fixed; z-index: 120; inset: 0; padding: 20px; display: grid; place-items: center; background: rgba(12, 27, 22, .42); backdrop-filter: blur(4px); }
+.ali-move-dialog { width: min(440px, 100%); padding: 20px; }
+.ali-move-dialog header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.ali-move-dialog header small { color: var(--accent); font-size: 11px; font-weight: 800; }.ali-move-dialog h3 { margin: 3px 0 0; font-size: 19px; }
+.ali-move-dialog header button { width: 36px; height: 36px; display: grid; place-items: center; flex: 0 0 36px; border: 0; border-radius: 11px; color: var(--muted); background: var(--surface-soft); cursor: pointer; }
+.ali-move-dialog > p { overflow: hidden; margin: 17px 0 13px; padding: 11px 12px; border-radius: 11px; color: var(--text); background: var(--surface-soft); font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.ali-move-dialog label { display: grid; gap: 6px; }.ali-move-dialog label span { color: var(--muted); font-size: 11px; font-weight: 700; }
+.ali-move-dialog select { width: 100%; min-height: 46px; padding: 0 11px; border: 1px solid var(--line); border-radius: 11px; outline: 0; color: var(--text); background: var(--surface); font: inherit; font-size: 13px; }
+.ali-move-dialog > div:last-child { margin-top: 17px; display: flex; justify-content: flex-end; gap: 8px; }.ali-move-dialog .primary-btn { min-width: 140px; justify-content: center; }
 .ali-empty-day { margin: 0; padding: 13px; border-radius: 11px; color: var(--muted); background: var(--surface-soft); font-size: 11px; text-align: center; }
 .ali-upload-button { min-height: 43px; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 11px; color: var(--accent); background: var(--accent-soft); font-size: 12px; font-weight: 800; cursor: pointer; }.ali-upload-button input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }.ali-upload-button.busy { opacity: .62; cursor: wait; }
 

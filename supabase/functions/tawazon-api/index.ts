@@ -434,6 +434,24 @@ async function deleteVideo(userId: string, videoId: string) {
   return { deleted: true }
 }
 
+async function moveVideo(userId: string, videoId: string, body: Record<string, unknown>) {
+  const sessionId = String(body.sessionId ?? '')
+  if (!trainingSessions.has(sessionId)) throw new HttpError(400, 'Choose a valid destination training day.')
+  const { data: video, error } = await admin.from('tawazon_training_videos').select('*').eq('id', videoId).eq('user_id', userId).eq('status', 'ready').maybeSingle()
+  if (error) throw error
+  if (!video) throw new HttpError(404, 'Training video not found.')
+  const current = video as VideoRow
+  if (current.session_id === sessionId) return { video: videoPayload(current) }
+
+  const { count, error: countError } = await admin.from('tawazon_training_videos').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('session_id', sessionId).eq('status', 'ready')
+  if (countError) throw countError
+  if ((count ?? 0) >= maxVideosPerDay) throw new HttpError(409, 'The destination training day already has the maximum of 50 videos.')
+
+  const { data: moved, error: updateError } = await admin.from('tawazon_training_videos').update({ session_id: sessionId }).eq('id', videoId).eq('user_id', userId).eq('status', 'ready').select('*').single()
+  if (updateError) throw updateError
+  return { video: videoPayload(moved as VideoRow) }
+}
+
 async function videoPlayback(userId: string, videoId: string) {
   const { data: video, error } = await admin.from('tawazon_training_videos').select('*').eq('id', videoId).eq('user_id', userId).eq('status', 'ready').maybeSingle()
   if (error) throw error
@@ -478,8 +496,9 @@ Deno.serve(async (request) => {
     if (request.method === 'POST' && completeMatch) return json(200, await completeVideoUpload(session.userId, completeMatch[1]))
     const playbackMatch = /^\/v1\/training\/videos\/([a-f0-9-]+)\/playback$/.exec(path)
     if (request.method === 'GET' && playbackMatch) return json(200, await videoPlayback(session.userId, playbackMatch[1]))
-    const deleteMatch = /^\/v1\/training\/videos\/([a-f0-9-]+)$/.exec(path)
-    if (request.method === 'DELETE' && deleteMatch) return json(200, await deleteVideo(session.userId, deleteMatch[1]))
+    const videoMatch = /^\/v1\/training\/videos\/([a-f0-9-]+)$/.exec(path)
+    if (request.method === 'PATCH' && videoMatch) return json(200, await moveVideo(session.userId, videoMatch[1], await readJson(request)))
+    if (request.method === 'DELETE' && videoMatch) return json(200, await deleteVideo(session.userId, videoMatch[1]))
     throw new HttpError(404, 'Not found.')
   } catch (error) {
     const status = error instanceof HttpError ? error.status : 500

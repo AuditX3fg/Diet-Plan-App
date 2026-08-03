@@ -129,6 +129,13 @@ export async function deleteCloudTrainingVideo(videoId: string) {
   return request<{ deleted: boolean }>(`/v1/training/videos/${encodeURIComponent(videoId)}`, { method: 'DELETE' })
 }
 
+export async function moveCloudTrainingVideo(videoId: string, sessionId: CloudTrainingVideo['sessionId']) {
+  return request<{ video: CloudTrainingVideo }>(`/v1/training/videos/${encodeURIComponent(videoId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ sessionId }),
+  })
+}
+
 export async function createCloudTrainingVideoUrl(videoId: string, signal?: AbortSignal) {
   if (!baseUrl || !token()) throw new Error('Sign in to play this training video.')
   const payload = await request<{ url: string; expiresAt: string }>(`/v1/training/videos/${encodeURIComponent(videoId)}/playback`, { signal })
