@@ -1,8 +1,17 @@
 import * as SecureStore from 'expo-secure-store'
 import type { VideoSource } from 'expo-video'
+import { createClient } from '@supabase/supabase-js'
 import type { UserAccount } from '../types'
 
-const baseUrl = (process.env.EXPO_PUBLIC_ACCOUNT_API_URL || process.env.EXPO_PUBLIC_RECOVERY_API_URL || '').trim().replace(/\/$/, '')
+const defaultSupabaseUrl = 'https://wxyrmynixsojofxtpfqi.supabase.co'
+const defaultPublishableKey = 'sb_publishable_hJ0TwMjeHZq9pZ0zZlfeHg_tdUNQi8f'
+const baseUrl = (process.env.EXPO_PUBLIC_ACCOUNT_API_URL || process.env.EXPO_PUBLIC_RECOVERY_API_URL || `${defaultSupabaseUrl}/functions/v1/tawazon-api`).trim().replace(/\/$/, '')
+const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL || defaultSupabaseUrl).trim().replace(/\/$/, '')
+const supabasePublishableKey = (process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || defaultPublishableKey).trim()
+const supabase = supabaseUrl && supabasePublishableKey
+  ? createClient(supabaseUrl, supabasePublishableKey, { auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false } })
+  : null
+const trainingBucket = 'tawazon-training-videos'
 const tokenKey = 'tawazon.cloud.token.v1'
 
 export interface CloudState {
@@ -27,6 +36,11 @@ export interface CloudTrainingVideo {
   mimeType: string
   sizeBytes: number
   createdAt: string
+}
+
+interface PreparedTrainingVideo {
+  video: CloudTrainingVideo
+  upload: { path: string; token: string; signedUrl: string }
 }
 
 async function getToken() { try { return await SecureStore.getItemAsync(tokenKey) } catch { return null } }
@@ -66,23 +80,31 @@ export async function listCloudTrainingVideos() {
 export async function uploadCloudTrainingVideo(sessionId: CloudTrainingVideo['sessionId'], title: string, asset: { uri: string; name: string; mimeType?: string | null }) {
   const currentToken = await getToken()
   if (!baseUrl || !currentToken) throw new Error('Sign in to your cloud account before uploading videos.')
-  const parameters = new URLSearchParams({ sessionId, title, originalName: asset.name })
+  if (!supabase) throw new Error('Private video storage is not configured in this build.')
   let localResponse: Response
   try { localResponse = await fetch(asset.uri) }
   catch { throw new Error('The selected video could not be read.') }
-  const body = await localResponse.blob()
-  const headers = new Headers({ Accept: 'application/json', 'Content-Type': asset.mimeType || body.type || 'video/mp4', Authorization: `Bearer ${currentToken}` })
-  let response: Response
-  try { response = await fetch(`${baseUrl}/v1/training/videos?${parameters}`, { method: 'POST', headers, body }) }
-  catch { throw new Error('Could not upload this video. Check your connection and try again.') }
-  const payload = await response.json().catch(() => ({})) as { video?: CloudTrainingVideo; error?: string }
-  if (!response.ok || !payload.video) throw new Error(payload.error || 'The training video could not be uploaded.')
-  return payload.video
+  const body = await localResponse.arrayBuffer()
+  const mimeType = asset.mimeType || localResponse.headers.get('content-type') || 'video/mp4'
+  const prepared = await request<PreparedTrainingVideo>('/v1/training/videos', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, title, originalName: asset.name, mimeType, sizeBytes: body.byteLength }),
+  })
+  const { error: uploadError } = await supabase.storage
+    .from(trainingBucket)
+    .uploadToSignedUrl(prepared.upload.path, prepared.upload.token, body, { contentType: mimeType })
+  if (uploadError) {
+    await deleteCloudTrainingVideo(prepared.video.id).catch(() => undefined)
+    throw new Error(uploadError.message || 'The training video could not be uploaded.')
+  }
+  const completed = await request<{ video: CloudTrainingVideo }>(`/v1/training/videos/${encodeURIComponent(prepared.video.id)}/complete`, { method: 'POST', body: '{}' })
+  return completed.video
 }
 export async function deleteCloudTrainingVideo(videoId: string) { return request<{ deleted: boolean }>(`/v1/training/videos/${encodeURIComponent(videoId)}`, { method: 'DELETE' }) }
 export async function cloudTrainingVideoSource(videoId: string, title: string): Promise<VideoSource> {
   const currentToken = await getToken()
   if (!baseUrl || !currentToken) throw new Error('Sign in to play this training video.')
-  return { uri: `${baseUrl}/v1/training/videos/${encodeURIComponent(videoId)}/content`, headers: { Authorization: `Bearer ${currentToken}` }, useCaching: true, metadata: { title, artist: 'Tawazon Coaching' } }
+  const playback = await request<{ url: string; expiresAt: string }>(`/v1/training/videos/${encodeURIComponent(videoId)}/playback`)
+  return { uri: playback.url, useCaching: true, metadata: { title, artist: 'Tawazon Coaching' } }
 }
 export async function cloudLogout() { if (baseUrl && await getToken()) await request('/v1/auth/logout', { method: 'POST', body: '{}' }).catch(() => undefined); await SecureStore.deleteItemAsync(tokenKey).catch(() => undefined) }

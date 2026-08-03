@@ -1,6 +1,15 @@
+import { createClient } from '@supabase/supabase-js'
 import type { UserAccount } from '../types'
 
-const baseUrl = (import.meta.env.VITE_ACCOUNT_API_URL || import.meta.env.VITE_RECOVERY_API_URL || '').trim().replace(/\/$/, '')
+const defaultSupabaseUrl = 'https://wxyrmynixsojofxtpfqi.supabase.co'
+const defaultPublishableKey = 'sb_publishable_hJ0TwMjeHZq9pZ0zZlfeHg_tdUNQi8f'
+const baseUrl = (import.meta.env.VITE_ACCOUNT_API_URL || import.meta.env.VITE_RECOVERY_API_URL || `${defaultSupabaseUrl}/functions/v1/tawazon-api`).trim().replace(/\/$/, '')
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || defaultSupabaseUrl).trim().replace(/\/$/, '')
+const supabasePublishableKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || defaultPublishableKey).trim()
+const supabase = supabaseUrl && supabasePublishableKey
+  ? createClient(supabaseUrl, supabasePublishableKey, { auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false } })
+  : null
+const trainingBucket = 'tawazon-training-videos'
 const tokenKey = 'tawazon-cloud-token-v1'
 
 interface CloudResponse {
@@ -25,6 +34,11 @@ export interface CloudTrainingVideo {
   mimeType: string
   sizeBytes: number
   createdAt: string
+}
+
+interface PreparedTrainingVideo {
+  video: CloudTrainingVideo
+  upload: { path: string; token: string; signedUrl: string }
 }
 
 function token() { return window.localStorage.getItem(tokenKey) || '' }
@@ -94,14 +108,21 @@ export async function listCloudTrainingVideos() {
 
 export async function uploadCloudTrainingVideo(sessionId: CloudTrainingVideo['sessionId'], title: string, file: File) {
   if (!baseUrl || !token()) throw new Error('Sign in to your cloud account before uploading videos.')
-  const parameters = new URLSearchParams({ sessionId, title, originalName: file.name })
-  const headers = new Headers({ Accept: 'application/json', 'Content-Type': file.type || 'video/mp4', Authorization: `Bearer ${token()}` })
-  let response: Response
-  try { response = await fetch(`${baseUrl}/v1/training/videos?${parameters}`, { method: 'POST', headers, body: file }) }
-  catch { throw new Error('Could not upload this video. Check your connection and try again.') }
-  const payload = await response.json().catch(() => ({})) as { video?: CloudTrainingVideo; error?: string }
-  if (!response.ok || !payload.video) throw new Error(payload.error || 'The training video could not be uploaded.')
-  return payload.video
+  if (!supabase) throw new Error('Private video storage is not configured in this build.')
+  const mimeType = file.type || 'video/mp4'
+  const prepared = await request<PreparedTrainingVideo>('/v1/training/videos', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, title, originalName: file.name, mimeType, sizeBytes: file.size }),
+  })
+  const { error: uploadError } = await supabase.storage
+    .from(trainingBucket)
+    .uploadToSignedUrl(prepared.upload.path, prepared.upload.token, file, { contentType: mimeType })
+  if (uploadError) {
+    await deleteCloudTrainingVideo(prepared.video.id).catch(() => undefined)
+    throw new Error(uploadError.message || 'The training video could not be uploaded.')
+  }
+  const completed = await request<{ video: CloudTrainingVideo }>(`/v1/training/videos/${encodeURIComponent(prepared.video.id)}/complete`, { method: 'POST', body: '{}' })
+  return completed.video
 }
 
 export async function deleteCloudTrainingVideo(videoId: string) {
@@ -110,15 +131,8 @@ export async function deleteCloudTrainingVideo(videoId: string) {
 
 export async function createCloudTrainingVideoUrl(videoId: string, signal?: AbortSignal) {
   if (!baseUrl || !token()) throw new Error('Sign in to play this training video.')
-  const headers = new Headers({ Authorization: `Bearer ${token()}` })
-  let response: Response
-  try { response = await fetch(`${baseUrl}/v1/training/videos/${encodeURIComponent(videoId)}/content`, { headers, signal }) }
-  catch { throw new Error('Could not load this training video.') }
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({})) as { error?: string }
-    throw new Error(payload.error || 'Could not load this training video.')
-  }
-  return URL.createObjectURL(await response.blob())
+  const payload = await request<{ url: string; expiresAt: string }>(`/v1/training/videos/${encodeURIComponent(videoId)}/playback`, { signal })
+  return payload.url
 }
 
 export async function cloudLogout() {

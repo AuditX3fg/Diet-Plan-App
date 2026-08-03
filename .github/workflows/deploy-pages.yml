@@ -37,6 +37,8 @@ jobs:
         env:
           VITE_ACCOUNT_API_URL: ${{ vars.ACCOUNT_API_URL }}
           VITE_RECOVERY_API_URL: ${{ vars.RECOVERY_API_URL }}
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build -- --base=/Diet-Plan-App/
 
       - name: Configure GitHub Pages
