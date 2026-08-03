@@ -5,6 +5,7 @@ import { palette } from '../theme'
 import type { ActivityLevel, AppData, HealthGoal, UserProfile } from '../types'
 import { Card, FormField, MetricChip, PrimaryButton, ScreenScroll, SectionHeader } from '../components/ui'
 import { calculateHealthMetrics } from '../utils/nutrition'
+import type { HealthProfileIssue } from '../utils/nutrition'
 import { tr } from '../i18n'
 
 const activityLevels: Array<{ id: ActivityLevel; en: string; ar: string }> = [
@@ -21,10 +22,24 @@ const goals: Array<{ id: HealthGoal; en: string; ar: string; glyph: string }> = 
   { id: 'gain', en: 'Gain', ar: 'زيادة', glyph: '↗' },
 ]
 
+const issueLabels: Record<HealthProfileIssue, { en: string; ar: string }> = {
+  age: { en: 'Age must be 20–100 for the adult calculator.', ar: 'العمر يجب أن يكون بين ٢٠ و١٠٠ سنة لاستخدام حاسبة البالغين.' },
+  height: { en: 'Height must be between 120 and 230 cm.', ar: 'الطول يجب أن يكون بين ١٢٠ و٢٣٠ سم.' },
+  weight: { en: 'Weight must be between 30 and 300 kg.', ar: 'الوزن يجب أن يكون بين ٣٠ و٣٠٠ كغ.' },
+  targetWeight: { en: 'Target weight must be between 30 and 300 kg.', ar: 'الوزن المستهدف يجب أن يكون بين ٣٠ و٣٠٠ كغ.' },
+  goalWeeks: { en: 'Goal duration must be between 1 and 104 weeks.', ar: 'مدة الهدف يجب أن تكون بين أسبوع و١٠٤ أسابيع.' },
+  goalDirection: { en: 'Target weight does not match the selected goal direction.', ar: 'الوزن المستهدف لا يطابق اتجاه الهدف المختار.' },
+  targetCalories: { en: 'Calories must be between 1,000 and 5,000.', ar: 'السعرات يجب أن تكون بين ١٠٠٠ و٥٠٠٠.' },
+  targetProtein: { en: 'Protein must be between 20 and 400 g.', ar: 'البروتين يجب أن يكون بين ٢٠ و٤٠٠ غ.' },
+  targetCarbs: { en: 'Carbohydrates must be between 20 and 600 g.', ar: 'الكربوهيدرات يجب أن تكون بين ٢٠ و٦٠٠ غ.' },
+  targetFat: { en: 'Fat must be between 20 and 200 g.', ar: 'الدهون يجب أن تكون بين ٢٠ و٢٠٠ غ.' },
+}
+
 export function ProfileScreen({ data, theme, onSave }: { data: AppData; theme: AppTheme; onSave: (profile: UserProfile) => void }) {
   const [draft, setDraft] = useState(data.profile)
   const language = data.language
   const metrics = calculateHealthMetrics(draft)
+  const profileIsValid = metrics.profileIsValid && draft.name.trim().length >= 2
   useEffect(() => setDraft(data.profile), [data.profile])
 
   function numberField(key: keyof UserProfile, value: string) {
@@ -56,10 +71,11 @@ export function ProfileScreen({ data, theme, onSave }: { data: AppData; theme: A
       </Card>
 
       <SectionHeader eyebrow={tr(language, 'HEALTH ESTIMATE', 'التقدير الصحي')} title={tr(language, 'Calculated guidance', 'إرشادات محسوبة')} caption={tr(language, 'Planning estimates only—not medical advice.', 'تقديرات للتخطيط وليست نصيحة طبية.')} theme={theme} />
+      {!profileIsValid ? <Card theme={theme} style={[styles.validationCard, { backgroundColor: theme.dark ? '#3b2927' : '#fff0ed' }]}><Text style={styles.validationTitle}>{tr(language, 'Check your details', 'راجع بياناتك')}</Text>{draft.name.trim().length < 2 ? <Text style={[styles.validationText, { color: theme.muted }]}>{tr(language, 'Display name must contain at least two characters.', 'اسم العرض يجب أن يحتوي على حرفين على الأقل.')}</Text> : null}{metrics.issues.map((issue) => <Text key={issue} style={[styles.validationText, { color: theme.muted }]}>{language === 'ar' ? issueLabels[issue].ar : issueLabels[issue].en}</Text>)}</Card> : null}
       <Card theme={theme} style={styles.metricsCard}>
-        <View style={styles.metricRow}><MetricChip label="BMI" value={metrics.bmi.toFixed(1)} theme={theme} tint={theme.dark ? theme.surfaceAlt : palette.green100} /><MetricChip label="BMR" value={`${metrics.bmr}`} theme={theme} tint={theme.dark ? theme.surfaceAlt : palette.amberSoft} /><MetricChip label="TDEE" value={`${metrics.tdee}`} theme={theme} tint={theme.dark ? theme.surfaceAlt : palette.lilacSoft} /></View>
-        <View style={[styles.recommendation, { backgroundColor: theme.primarySoft }]}><Text style={[styles.recommendationLabel, { color: theme.primary }]}>{tr(language, 'RECOMMENDED DAILY TARGET', 'الهدف اليومي المقترح')}</Text><Text style={[styles.recommendationValue, { color: theme.text }]}>{metrics.calories} kcal</Text><Text style={[styles.recommendationMacros, { color: theme.muted }]}>P {metrics.protein}g · C {metrics.carbs}g · F {metrics.fat}g</Text></View>
-        <PrimaryButton label={tr(language, 'Apply calculated targets', 'تطبيق الأهداف المحسوبة')} onPress={applyCalculatedTargets} theme={theme} />
+        <View style={styles.metricRow}><MetricChip label="BMI" value={metrics.isValid ? metrics.bmi.toFixed(1) : '—'} theme={theme} tint={theme.dark ? theme.surfaceAlt : palette.green100} /><MetricChip label="BMR" value={metrics.isValid ? `${metrics.bmr}` : '—'} theme={theme} tint={theme.dark ? theme.surfaceAlt : palette.amberSoft} /><MetricChip label="TDEE" value={metrics.isValid ? `${metrics.tdee}` : '—'} theme={theme} tint={theme.dark ? theme.surfaceAlt : palette.lilacSoft} /></View>
+        <View style={[styles.recommendation, { backgroundColor: theme.primarySoft }]}><Text style={[styles.recommendationLabel, { color: theme.primary }]}>{tr(language, 'RECOMMENDED DAILY TARGET', 'الهدف اليومي المقترح')}</Text><Text style={[styles.recommendationValue, { color: theme.text }]}>{metrics.isValid ? `${metrics.calories} kcal` : '—'}</Text><Text style={[styles.recommendationMacros, { color: theme.muted }]}>{metrics.isValid ? `P ${metrics.protein}g · C ${metrics.carbs}g · F ${metrics.fat}g` : tr(language, 'Complete valid details to calculate', 'أكمل البيانات الصحيحة للحساب')}</Text></View>
+        <PrimaryButton label={tr(language, 'Apply calculated targets', 'تطبيق الأهداف المحسوبة')} onPress={applyCalculatedTargets} disabled={!metrics.isValid} theme={theme} />
       </Card>
 
       <SectionHeader eyebrow={tr(language, 'CURRENT TARGETS', 'الأهداف الحالية')} title={tr(language, 'Nutrition goals', 'أهداف التغذية')} theme={theme} />
@@ -67,7 +83,7 @@ export function ProfileScreen({ data, theme, onSave }: { data: AppData; theme: A
         <View style={styles.twoColumns}><View style={styles.flex}><FormField label="Calories" value={String(draft.targetCalories)} onChangeText={(value) => numberField('targetCalories', value)} keyboardType="number-pad" theme={theme} /></View><View style={styles.flex}><FormField label="Protein (g)" value={String(draft.targetProtein)} onChangeText={(value) => numberField('targetProtein', value)} keyboardType="number-pad" theme={theme} /></View></View>
         <View style={styles.twoColumns}><View style={styles.flex}><FormField label="Carbs (g)" value={String(draft.targetCarbs)} onChangeText={(value) => numberField('targetCarbs', value)} keyboardType="number-pad" theme={theme} /></View><View style={styles.flex}><FormField label="Fat (g)" value={String(draft.targetFat)} onChangeText={(value) => numberField('targetFat', value)} keyboardType="number-pad" theme={theme} /></View></View>
       </Card>
-      <PrimaryButton label={tr(language, 'Save profile', 'حفظ الملف')} icon="✓" onPress={() => onSave(draft)} theme={theme} />
+      <PrimaryButton label={tr(language, 'Save profile', 'حفظ الملف')} icon="✓" disabled={!profileIsValid} onPress={() => onSave(draft)} theme={theme} />
     </ScreenScroll>
   )
 }
@@ -94,4 +110,7 @@ const styles = StyleSheet.create({
   recommendationLabel: { fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
   recommendationValue: { fontSize: 25, fontWeight: '900' },
   recommendationMacros: { fontSize: 10, fontWeight: '700' },
+  validationCard: { gap: 5, borderColor: palette.danger },
+  validationTitle: { color: palette.danger, fontSize: 13, fontWeight: '900' },
+  validationText: { fontSize: 11, lineHeight: 16 },
 })

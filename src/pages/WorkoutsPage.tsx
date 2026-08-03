@@ -37,13 +37,13 @@ export function WorkoutsPage({ profile, preference, onPreferenceChange }: Workou
   const sessions = sportSessions[preference]
   const days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
   const daysEn = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-  const bmiTone = metrics.bmi < 18.5 ? tr('زيادة تدريجية', 'Build up gradually') : metrics.bmi < 25 ? tr('لياقة وتوازن', 'Fitness and balance') : tr('نزول آمن وتحسين اللياقة', 'Safe loss and better fitness')
+  const bmiTone = !metrics.isValid ? tr('أكمل بيانات الملف', 'Complete your profile') : metrics.bmi < 18.5 ? tr('زيادة تدريجية', 'Build up gradually') : metrics.bmi < 25 ? tr('لياقة وتوازن', 'Fitness and balance') : tr('نزول آمن وتحسين اللياقة', 'Safe loss and better fitness')
 
   return (
     <div className="workouts-page">
       <section className="feature-intro">
         <div><span className="status-pill"><Dumbbell size={14} /> {tr('خطة التمرين', 'Workout plan')}</span><h2>{tr('برنامج يناسب هدفك', 'A program built for your goal')}</h2><p>{tr('أربعة أيام نشاط وثلاثة أيام استشفاء، مبنية على هدفك وقياساتك.', 'Four active days and three recovery days based on your goal and measurements.')}</p></div>
-        <div className="plan-balance"><TrendingUp size={17} /><span><small>BMI {toArabicNumber(metrics.bmi.toFixed(1))}</small><b>{bmiTone}</b></span></div>
+        <div className="plan-balance"><TrendingUp size={17} /><span><small>BMI {metrics.isValid ? toArabicNumber(metrics.bmi.toFixed(1)) : '—'}</small><b>{bmiTone}</b></span></div>
       </section>
 
       <div className="sport-picker card-surface">
