@@ -35,6 +35,18 @@ export interface MealGroup {
   options: MealOption[]
 }
 
+export interface FruitOption {
+  id: string
+  name: string
+  nameEn: string
+  nameFr: string
+  amount: string
+  amountEn: string
+  amountFr: string
+  calories: number
+  glyph: string
+}
+
 export interface DayPlan {
   id: string
   date: string

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { mealGroups } from '../data'
-import type { AppData, DaySelections, DietMealId, ImportedDietPlan, MealGroup, SelectionMap, UserAccount, UserProfile } from '../types'
+import { fruits, mealGroups } from '../data'
+import type { AppData, DaySelections, DietMealId, FruitMap, ImportedDietPlan, MealGroup, SelectionMap, UserAccount, UserProfile } from '../types'
 import { buildWeekIds } from '../utils/nutrition'
 import { isCloudConfigured, loadCloudState, saveCloudState } from './cloud'
 
@@ -32,6 +32,10 @@ function defaultDaySelections(groups: MealGroup[], dayIndex: number): DaySelecti
 
 export function createDefaultSelections(groups: MealGroup[]): SelectionMap {
   return Object.fromEntries(buildWeekIds().map((dayId, index) => [dayId, defaultDaySelections(groups, index)]))
+}
+
+export function createDefaultFruitMap(): FruitMap {
+  return Object.fromEntries(buildWeekIds().map((dayId, index) => [dayId, [fruits[(index * 2) % fruits.length].id, fruits[(index * 2 + 1) % fruits.length].id]]))
 }
 
 function importedImageKey(mealId: DietMealId, text: string) {
@@ -90,6 +94,7 @@ function initialData(account: UserAccount): AppData {
   return {
     profile: { ...defaultProfile, name: account.displayName },
     selections: createDefaultSelections(mealGroups),
+    fruitMap: createDefaultFruitMap(),
     waterByDay: { [buildWeekIds()[0]]: 5 },
     habits: {},
     weights: [
@@ -125,6 +130,7 @@ export async function loadAppData(account: UserAccount) {
       ...parsed,
       profile: { ...defaults.profile, ...parsed.profile },
       selections: { ...currentWeekSelections, ...(parsed.selections ?? {}) },
+      fruitMap: parsed.fruitMap ?? defaults.fruitMap,
       waterByDay: parsed.waterByDay ?? defaults.waterByDay,
       habits: parsed.habits ?? {},
       weights: parsed.weights ?? defaults.weights,

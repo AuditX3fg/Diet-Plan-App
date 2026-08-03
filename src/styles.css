@@ -387,10 +387,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(31, 107, 87,
 .fruit-head span { color: var(--muted); font-size: 9px; }
 .fruit-count { padding: 5px 9px; border-radius: 99px; background: var(--surface-soft); font-weight: 700; }
 .fruit-grid { padding: 0 16px 16px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; }
-.fruit-grid button { position: relative; min-width: 0; min-height: 79px; display: flex; align-items: center; justify-content: center; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); color: var(--text); cursor: pointer; }
-.fruit-grid button > span { font-size: 22px; }
-.fruit-grid button b { margin: 2px 0; font-size: 9px; }
-.fruit-grid button small { color: var(--muted); font-size: 7px; }
+.fruit-grid button { position: relative; min-width: 0; min-height: 92px; padding: 8px 4px; display: flex; align-items: center; justify-content: center; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); color: var(--text); cursor: pointer; }
+.fruit-grid button > span { font-size: 26px; line-height: 1.15; }
+.fruit-grid button b { min-height: 26px; margin: 4px 0 2px; display: grid; place-items: center; font-size: 10px; line-height: 13px; }
+.fruit-grid button small { color: var(--muted); font-size: 8px; }
 .fruit-grid button.active { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: var(--accent-soft); }
 .fruit-grid button:disabled { opacity: .45; cursor: not-allowed; }
 .fruit-grid button i { position: absolute; left: 5px; top: 5px; width: 17px; height: 17px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: var(--accent); }

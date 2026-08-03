@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Apple, ChevronDown, Dice5, Flame, Sparkles } from 'lucide-react'
 import { fruits } from '../data'
 import { MealThumbnail } from '../components/MealThumbnail'
-import { mealName, mealTitle, tr } from '../i18n'
+import { fruitName, mealName, mealTitle, tr } from '../i18n'
 import type { DayPlan, FruitMap, MealGroup, SelectionMap } from '../types'
 import { formatPortion, getMealItems, getMealTotals, toArabicNumber } from '../utils'
 
@@ -57,7 +57,7 @@ export function WeekPage({ days, mealGroups, selections, fruitMap, weeklyTotals,
                     })}
                   </div>
                   <div className="week-day-footer">
-                    <span><Apple size={15} /> {chosenFruits.map((fruit) => tr(fruit.name, fruit.nameEn)).join(' + ') || tr('لم تختر فاكهة', 'No fruit selected')}</span>
+                    <span><Apple size={15} /> {chosenFruits.map(fruitName).join(' + ') || tr('لم تختر فاكهة', 'No fruit selected')}</span>
                     <span>{toArabicNumber(totals.protein)}g {tr('بروتين', 'protein')} · {toArabicNumber(totals.carbs)}g {tr('كارب', 'carbs')}</span>
                     <button className="soft-btn" onClick={() => onOpenDay(day.id)}>{tr('تعديل هذا اليوم', 'Edit this day')}</button>
                   </div>

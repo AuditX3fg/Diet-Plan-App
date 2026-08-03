@@ -1,3 +1,4 @@
+import { fruits } from '../data'
 import type { ActivityLevel, AppData, DaySelections, MealGroup, NutritionTotals, UserProfile } from '../types'
 
 export function buildWeekIds() {
@@ -20,20 +21,24 @@ export function longDateLabel(dayId: string, language = 'en') {
   return new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : language === 'fr' ? 'fr-FR' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' }).format(date)
 }
 
-export function getNutritionTotals(selections: DaySelections | undefined, groups: MealGroup[]): NutritionTotals {
+export function getNutritionTotals(selections: DaySelections | undefined, groups: MealGroup[], fruitIds: string[] = []): NutritionTotals {
   const initial: NutritionTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 }
-  if (!selections) return initial
-  return groups.reduce((totals, group) => {
-    Object.entries(selections[group.id] ?? {}).forEach(([optionId, portion]) => {
+  const totals = groups.reduce((result, group) => {
+    Object.entries(selections?.[group.id] ?? {}).forEach(([optionId, portion]) => {
       const option = group.options.find((item) => item.id === optionId)
       if (!option) return
-      totals.calories += option.calories * portion
-      totals.protein += option.protein * portion
-      totals.carbs += option.carbs * portion
-      totals.fat += option.fat * portion
+      result.calories += option.calories * portion
+      result.protein += option.protein * portion
+      result.carbs += option.carbs * portion
+      result.fat += option.fat * portion
     })
-    return totals
+    return result
   }, initial)
+  fruits.filter((fruit) => fruitIds.includes(fruit.id)).forEach((fruit) => {
+    totals.calories += fruit.calories
+    totals.carbs += Math.round(fruit.calories / 4)
+  })
+  return totals
 }
 
 export function selectionSummary(group: MealGroup, selections: DaySelections | undefined, language: string) {

@@ -17,7 +17,7 @@ export function TodayScreen({ data, groups, theme, onChangeData, onOpenPlan }: {
 }) {
   const todayId = new Date().toISOString().slice(0, 10)
   const language = data.language
-  const totals = getNutritionTotals(data.selections[todayId], groups)
+  const totals = getNutritionTotals(data.selections[todayId], groups, data.fruitMap[todayId])
   const calorieProgress = data.profile.targetCalories > 0 ? totals.calories / data.profile.targetCalories * 100 : 0
   const remaining = Math.max(0, Math.round(data.profile.targetCalories - totals.calories))
   const water = data.waterByDay[todayId] ?? 0

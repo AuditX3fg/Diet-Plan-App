@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Apple, Check, ChevronLeft, Dice5, Leaf, Printer, RotateCcw, Save, Sparkles, Trash2 } from 'lucide-react'
 import { fruits } from '../data'
-import { localeCode, tr } from '../i18n'
+import { fruitAmount, fruitName, localeCode, tr } from '../i18n'
 import { MealCard } from '../components/MealCard'
 import type { DayPlan, FruitMap, MealGroup, PlanPreset, SelectionMap, UserProfile } from '../types'
 import { toArabicNumber } from '../utils'
@@ -103,8 +103,8 @@ export function PlanPage({
                 const active = selectedFruits.includes(fruit.id)
                 const disabled = !active && selectedFruits.length >= 2
                 return (
-                  <button key={fruit.id} disabled={disabled} className={active ? 'active' : ''} onClick={() => onFruitToggle(fruit.id)}>
-                    <span>{fruit.glyph}</span><b>{tr(fruit.name, fruit.nameEn)}</b><small>{tr(fruit.amount, fruit.amountEn)}</small>{active && <i><Check size={12} /></i>}
+                  <button key={fruit.id} disabled={disabled} className={active ? 'active' : ''} onClick={() => onFruitToggle(fruit.id)} aria-label={`${fruitName(fruit)}, ${fruitAmount(fruit)}`} title={fruitName(fruit)}>
+                    <span role="img" aria-hidden="true">{fruit.glyph}</span><b>{fruitName(fruit)}</b><small>{fruitAmount(fruit)}</small>{active && <i><Check size={12} /></i>}
                   </button>
                 )
               })}

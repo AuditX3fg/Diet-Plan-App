@@ -1,4 +1,4 @@
-import type { Language, MealGroup, MealOption } from './types'
+import type { FruitOption, Language, MealGroup, MealOption } from './types'
 
 let activeLanguage: Language = 'ar'
 
@@ -30,6 +30,14 @@ export function mealTitle(meal: MealGroup) {
 
 export function mealSubtitle(meal: MealGroup) {
   return activeLanguage === 'ar' ? meal.subtitle : meal.subtitleEn
+}
+
+export function fruitName(fruit: FruitOption) {
+  return activeLanguage === 'ar' ? fruit.name : activeLanguage === 'fr' ? fruit.nameFr : fruit.nameEn
+}
+
+export function fruitAmount(fruit: FruitOption) {
+  return activeLanguage === 'ar' ? fruit.amount : activeLanguage === 'fr' ? fruit.amountFr : fruit.amountEn
 }
 
 export function localeCode() {

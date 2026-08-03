@@ -11,7 +11,7 @@ export function ProgressScreen({ data, groups, theme, onChangeData }: { data: Ap
   const [weight, setWeight] = useState(String(data.profile.weight))
   const language = data.language
   const days = buildWeekIds()
-  const totals = days.map((day) => ({ day, totals: getNutritionTotals(data.selections[day], groups), habits: completedHabitCount(data, day) }))
+  const totals = days.map((day) => ({ day, totals: getNutritionTotals(data.selections[day], groups, data.fruitMap[day]), habits: completedHabitCount(data, day) }))
   const adherentDays = totals.filter((entry) => entry.totals.calories > 0 && Math.abs(entry.totals.calories - data.profile.targetCalories) <= data.profile.targetCalories * 0.12).length
   const average = Math.round(totals.reduce((sum, entry) => sum + entry.totals.calories, 0) / totals.length)
   const completedHabits = totals.reduce((sum, entry) => sum + entry.habits, 0)

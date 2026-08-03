@@ -38,6 +38,18 @@ export interface MealGroup {
   options: MealOption[]
 }
 
+export interface FruitOption {
+  id: string
+  name: string
+  nameEn: string
+  nameFr: string
+  amount: string
+  amountEn: string
+  amountFr: string
+  calories: number
+  glyph: string
+}
+
 export interface ImportedDietMeal {
   id: DietMealId
   title: string
@@ -95,6 +107,7 @@ export interface WeightEntry {
 export type MealSelection = Record<string, number>
 export type DaySelections = Record<DietMealId, MealSelection>
 export type SelectionMap = Record<string, DaySelections>
+export type FruitMap = Record<string, string[]>
 export type HabitMap = Record<string, Partial<Record<HabitId, boolean>>>
 
 export interface FoodProduct {
@@ -117,6 +130,7 @@ export interface AppData {
   dietPlan?: ImportedDietPlan
   planSkippedAt?: string
   selections: SelectionMap
+  fruitMap: FruitMap
   waterByDay: Record<string, number>
   habits: HabitMap
   weights: WeightEntry[]

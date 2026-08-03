@@ -1,4 +1,4 @@
-import type { HabitId, MealGroup, SportPreference } from './types'
+import type { FruitOption, HabitId, MealGroup, SportPreference } from './types'
 
 type RawMeal = [id: string, name: string, nameEn: string, calories: number, protein: number, carbs: number, recipeUrl?: string]
 
@@ -109,6 +109,27 @@ export const mealGroups: MealGroup[] = [
       ['chicken-balls', 'كريات الدجاج', 'Chicken balls', 280, 18, 22],
     ]),
   },
+]
+
+export const fruits: FruitOption[] = [
+  { id: 'greengage', name: 'برقوق أخضر (جانرك)', nameEn: 'Greengage plum', nameFr: 'Reine-claude', amount: '١٥٠غ', amountEn: '150 g', amountFr: '150 g', calories: 115, glyph: '🍏' },
+  { id: 'banana', name: 'موز', nameEn: 'Banana', nameFr: 'Banane', amount: '١٠٠غ', amountEn: '100 g', amountFr: '100 g', calories: 115, glyph: '🍌' },
+  { id: 'mango', name: 'مانجو', nameEn: 'Mango', nameFr: 'Mangue', amount: '١٥٠غ', amountEn: '150 g', amountFr: '150 g', calories: 115, glyph: '🥭' },
+  { id: 'apple', name: 'تفاح', nameEn: 'Apple', nameFr: 'Pomme', amount: '٢٠٠غ', amountEn: '200 g', amountFr: '200 g', calories: 115, glyph: '🍎' },
+  { id: 'papaya', name: 'بابايا', nameEn: 'Papaya', nameFr: 'Papaye', amount: '١٠٠غ', amountEn: '100 g', amountFr: '100 g', calories: 115, glyph: '🥭' },
+  { id: 'pineapple', name: 'أناناس', nameEn: 'Pineapple', nameFr: 'Ananas', amount: '٢٠٠غ', amountEn: '200 g', amountFr: '200 g', calories: 115, glyph: '🍍' },
+  { id: 'loquat', name: 'أسكدنيا', nameEn: 'Loquat', nameFr: 'Nèfle du Japon', amount: '١٥٠غ', amountEn: '150 g', amountFr: '150 g', calories: 115, glyph: '🍊' },
+  { id: 'peach', name: 'دراق', nameEn: 'Peach', nameFr: 'Pêche', amount: '٢٠٠غ', amountEn: '200 g', amountFr: '200 g', calories: 115, glyph: '🍑' },
+  { id: 'plum', name: 'برقوق', nameEn: 'Plum', nameFr: 'Prune', amount: '٢٠٠غ', amountEn: '200 g', amountFr: '200 g', calories: 115, glyph: '🫐' },
+  { id: 'avocado', name: 'أفوكادو', nameEn: 'Avocado', nameFr: 'Avocat', amount: '٧٠غ', amountEn: '70 g', amountFr: '70 g', calories: 115, glyph: '🥑' },
+  { id: 'watermelon', name: 'بطيخ أحمر', nameEn: 'Watermelon', nameFr: 'Pastèque', amount: '٤٠٠غ', amountEn: '400 g', amountFr: '400 g', calories: 115, glyph: '🍉' },
+  { id: 'orange', name: 'برتقال', nameEn: 'Orange', nameFr: 'Orange', amount: '٢٠٠غ', amountEn: '200 g', amountFr: '200 g', calories: 115, glyph: '🍊' },
+  { id: 'persimmon', name: 'كاكي (خرما)', nameEn: 'Persimmon', nameFr: 'Kaki', amount: '٢٠٠غ', amountEn: '200 g', amountFr: '200 g', calories: 115, glyph: '🍊' },
+  { id: 'pear', name: 'إجاص', nameEn: 'Pear', nameFr: 'Poire', amount: '٢٠٠غ', amountEn: '200 g', amountFr: '200 g', calories: 115, glyph: '🍐' },
+  { id: 'grapes', name: 'عنب', nameEn: 'Grapes', nameFr: 'Raisin', amount: '١٥٠غ', amountEn: '150 g', amountFr: '150 g', calories: 115, glyph: '🍇' },
+  { id: 'berries', name: 'فراولة', nameEn: 'Strawberries', nameFr: 'Fraises', amount: '٤٠٠غ', amountEn: '400 g', amountFr: '400 g', calories: 115, glyph: '🍓' },
+  { id: 'custard-apple', name: 'فاكهة القشطة', nameEn: 'Custard apple', nameFr: 'Pomme cannelle', amount: 'حبة متوسطة', amountEn: '1 medium fruit', amountFr: '1 fruit moyen', calories: 115, glyph: '🍈' },
+  { id: 'pomegranate', name: 'رمان', nameEn: 'Pomegranate', nameFr: 'Grenade', amount: 'حبة متوسطة', amountEn: '1 medium fruit', amountFr: '1 fruit moyen', calories: 115, glyph: '🍎' },
 ]
 
 export const habitTasks: Array<{ id: HabitId; label: string; labelEn: string; glyph: string }> = [

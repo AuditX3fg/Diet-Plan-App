@@ -3,17 +3,19 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-na
 import * as Haptics from 'expo-haptics'
 import type { AppTheme } from '../theme'
 import type { AppData, DietMealId, MealGroup } from '../types'
+import { fruits } from '../data'
 import { Card, ProgressBar, ScreenScroll, SecondaryButton, SectionHeader } from '../components/ui'
 import { MealImage } from '../components/MealImage'
 import { buildWeekIds, formatPortion, getNutritionTotals, shortDayLabel } from '../utils/nutrition'
-import { tr } from '../i18n'
+import { fruitAmount, fruitName, tr } from '../i18n'
 
 export function PlanScreen({ data, groups, theme, onChangeData }: { data: AppData; groups: MealGroup[]; theme: AppTheme; onChangeData: (next: AppData) => void }) {
   const days = buildWeekIds()
   const [selectedDay, setSelectedDay] = useState(days[0])
   const language = data.language
   const daySelections = data.selections[selectedDay]
-  const totals = getNutritionTotals(daySelections, groups)
+  const selectedFruits = data.fruitMap[selectedDay] ?? []
+  const totals = getNutritionTotals(daySelections, groups, selectedFruits)
   const percentage = data.profile.targetCalories ? totals.calories / data.profile.targetCalories * 100 : 0
 
   function setPortion(mealId: DietMealId, optionId: string, nextValue: number) {
@@ -27,8 +29,21 @@ export function PlanScreen({ data, groups, theme, onChangeData }: { data: AppDat
   }
 
   function resetDay() {
-    onChangeData({ ...data, selections: { ...data.selections, [selectedDay]: { breakfast: {}, snack: {}, lunch: {}, dinner: {} } } })
+    onChangeData({
+      ...data,
+      selections: { ...data.selections, [selectedDay]: { breakfast: {}, snack: {}, lunch: {}, dinner: {} } },
+      fruitMap: { ...data.fruitMap, [selectedDay]: [] },
+    })
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+  }
+
+  function toggleFruit(fruitId: string) {
+    const next = selectedFruits.includes(fruitId)
+      ? selectedFruits.filter((id) => id !== fruitId)
+      : selectedFruits.length < 2 ? [...selectedFruits, fruitId] : selectedFruits
+    if (next === selectedFruits) return
+    onChangeData({ ...data, fruitMap: { ...data.fruitMap, [selectedDay]: next } })
+    void Haptics.selectionAsync()
   }
 
   return (
@@ -70,6 +85,39 @@ export function PlanScreen({ data, groups, theme, onChangeData }: { data: AppDat
           </ScrollView>
         </View>
       ))}
+
+      <View style={styles.fruitSection}>
+        <SectionHeader
+          eyebrow={tr(language, 'FRUIT PORTIONS', 'حصص الفاكهة', 'PORTIONS DE FRUITS')}
+          title={tr(language, 'Choose up to two', 'اختر نوعين كحد أقصى', "Choisissez jusqu’à deux fruits")}
+          caption={tr(language, 'Fruit calories are included in your daily total.', 'تُحتسب سعرات الفاكهة ضمن مجموع يومك.', 'Les calories des fruits sont incluses dans votre total quotidien.')}
+          theme={theme}
+        />
+        <View style={styles.fruitGrid}>
+          {fruits.map((fruit) => {
+            const selected = selectedFruits.includes(fruit.id)
+            const disabled = !selected && selectedFruits.length >= 2
+            return <Pressable
+              key={fruit.id}
+              disabled={disabled}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: selected, disabled }}
+              accessibilityLabel={`${fruitName(language, fruit)}, ${fruitAmount(language, fruit)}`}
+              onPress={() => toggleFruit(fruit.id)}
+              style={[
+                styles.fruitCard,
+                { backgroundColor: selected ? theme.primarySoft : theme.surface, borderColor: selected ? theme.primary : theme.line },
+                disabled && styles.fruitDisabled,
+              ]}
+            >
+              <Text style={styles.fruitGlyph}>{fruit.glyph}</Text>
+              <Text numberOfLines={2} style={[styles.fruitName, { color: theme.text }]}>{fruitName(language, fruit)}</Text>
+              <Text style={[styles.fruitAmount, { color: theme.muted }]}>{fruitAmount(language, fruit)}</Text>
+              {selected ? <View style={[styles.fruitCheck, { backgroundColor: theme.primary }]}><Text style={styles.fruitCheckText}>✓</Text></View> : null}
+            </Pressable>
+          })}
+        </View>
+      </View>
 
       <SectionHeader eyebrow={tr(language, 'DAY ACTIONS', 'إجراءات اليوم')} title={tr(language, 'Start again', 'ابدأ من جديد')} caption={tr(language, 'Reset removes every selected meal and immediately resets calories to zero.', 'إعادة الضبط تحذف كل الوجبات وتعيد السعرات إلى صفر فوراً.')} theme={theme} />
       <SecondaryButton label={tr(language, 'Reset selected day', 'إعادة ضبط اليوم المحدد')} onPress={resetDay} danger theme={theme} />
@@ -117,4 +165,13 @@ const styles = StyleSheet.create({
   portionValue: { alignItems: 'center' },
   portionNumber: { fontSize: 16, fontWeight: '900' },
   portionLabel: { fontSize: 8, fontWeight: '700' },
+  fruitSection: { gap: 12 },
+  fruitGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+  fruitCard: { position: 'relative', width: '31.5%', minHeight: 112, paddingHorizontal: 7, paddingVertical: 11, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  fruitDisabled: { opacity: 0.42 },
+  fruitGlyph: { fontSize: 28, lineHeight: 35 },
+  fruitName: { minHeight: 29, marginTop: 2, textAlign: 'center', fontSize: 10, lineHeight: 14, fontWeight: '900' },
+  fruitAmount: { marginTop: 3, fontSize: 8, fontWeight: '700' },
+  fruitCheck: { position: 'absolute', top: 7, right: 7, width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  fruitCheckText: { color: '#fff', fontSize: 10, fontWeight: '900' },
 })
