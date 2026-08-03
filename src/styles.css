@@ -448,7 +448,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(31, 107, 87,
 .week-meals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .week-meals > div { min-width: 0; padding: 10px; display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); }
 .week-meals > div > span { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 10px; }
-.week-meals p { min-width: 0; margin: 0; display: flex; flex-direction: column; }.week-meals small { color: var(--muted); font-size: 8px; }.week-meals b { overflow: hidden; margin-top: 2px; font-size: 9px; white-space: nowrap; text-overflow: ellipsis; }.week-meals em { color: var(--muted); font-size: 8px; font-style: normal; }
+.week-meals p { min-width: 0; margin: 0; display: flex; flex-direction: column; }.week-meals small { color: var(--muted); font-size: 16px; }.week-meals b { overflow: hidden; margin-top: 2px; font-size: 18px; white-space: nowrap; text-overflow: ellipsis; }.week-meals em { color: var(--muted); font-size: 16px; font-style: normal; }
 .week-day-footer { margin-top: 10px; display: flex; align-items: center; gap: 15px; color: var(--muted); font-size: 9px; }.week-day-footer > span { display: flex; align-items: center; gap: 5px; }.week-day-footer button { margin-inline-start: auto; }
 
 /* Tracker */
