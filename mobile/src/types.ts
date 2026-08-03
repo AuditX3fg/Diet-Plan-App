@@ -135,6 +135,7 @@ export interface FoodProduct {
 }
 
 export interface AppData {
+  activeTab?: MainTab
   profile: UserProfile
   dietPlan?: ImportedDietPlan
   planSkippedAt?: string

@@ -38,6 +38,8 @@ const defaultProfile: UserProfile = {
   goalWeeks: 16,
 }
 
+const validViews = new Set<View>(['today', 'plan', 'week', 'habits', 'scanner', 'workouts', 'progress', 'profile', 'settings'])
+
 function defaultFruitMap(dayIds: string[]): FruitMap {
   return Object.fromEntries(dayIds.map((id, index) => [id, [fruits[(index * 2) % fruits.length].id, fruits[(index * 2 + 1) % fruits.length].id]]))
 }
@@ -90,7 +92,8 @@ function DietApp({ account, onAccountChange, onLogout }: DietAppProps) {
     targetFat: account.dietPlan?.fat ?? defaultProfile.targetFat,
   }), [account.displayName, account.dietPlan])
   const storageKey = (key: string) => accountStorageKey(account.id, key)
-  const [view, setView] = useState<View>('today')
+  const [storedView, setView] = useLocalStorage<View>(storageKey('active-view-v1'), 'today')
+  const view = validViews.has(storedView) ? storedView : 'today'
   const [importingPlan, setImportingPlan] = useState(false)
   const [selectedDayId, setSelectedDayId] = useState(days[0].id)
   const [openMeal, setOpenMeal] = useState<string | null>('breakfast')

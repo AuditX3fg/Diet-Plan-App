@@ -162,6 +162,7 @@ function safeExternalUrl(value: unknown) {
 
 function initialData(account: UserAccount): AppData {
   return {
+    activeTab: 'today',
     profile: { ...defaultProfile, name: account.displayName },
     selections: createDefaultSelections(mealGroups),
     fruitMap: createDefaultFruitMap(),

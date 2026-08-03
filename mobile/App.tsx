@@ -67,10 +67,14 @@ function AuthenticatedApp({ account, data, onChangeAccount, onChangeData, onLogo
   onChangeData: (data: AppData) => void
   onLogout: () => void
 }) {
-  const [tab, setTab] = useState<MainTab>('today')
   const [replacingPlan, setReplacingPlan] = useState(false)
   const theme = useAppTheme(data.theme)
   const groups = useMemo(() => buildMealGroups(data.dietPlan), [data.dietPlan])
+  const tab: MainTab = ['today', 'plan', 'progress', 'profile', 'more'].includes(data.activeTab ?? '') ? data.activeTab as MainTab : 'today'
+
+  function changeTab(next: MainTab) {
+    if (next !== tab) onChangeData({ ...data, activeTab: next })
+  }
 
   useEffect(() => {
     void saveAppData(account.id, data)
@@ -98,13 +102,13 @@ function AuthenticatedApp({ account, data, onChangeAccount, onChangeData, onLogo
   else if (tab === 'progress') screen = <ProgressScreen data={data} groups={groups} theme={theme} onChangeData={onChangeData} />
   else if (tab === 'profile') screen = <ProfileScreen account={account} data={data} theme={theme} onSave={(profile) => void saveProfile(profile)} onAccountUpdate={async (input) => { const next = await updateAccountDetails(account.id, input); onChangeAccount(next); return next }} />
   else if (tab === 'more') screen = <MoreScreen account={account} data={data} theme={theme} onChangeAccount={onChangeAccount} onChangeData={onChangeData} onReplacePlan={() => setReplacingPlan(true)} onLogout={onLogout} />
-  else screen = <TodayScreen data={data} groups={groups} theme={theme} onChangeData={onChangeData} onOpenPlan={() => setTab('plan')} />
+  else screen = <TodayScreen data={data} groups={groups} theme={theme} onChangeData={onChangeData} onOpenPlan={() => changeTab('plan')} />
 
   return (
     <View style={[styles.app, { backgroundColor: theme.background, direction: data.language === 'ar' ? 'rtl' : 'ltr' }]}>
       <StatusBar style={theme.dark ? 'light' : 'dark'} />
       {screen}
-      <BottomTabs active={tab} onChange={setTab} theme={theme} language={data.language} />
+      <BottomTabs active={tab} onChange={changeTab} theme={theme} language={data.language} />
     </View>
   )
 }
