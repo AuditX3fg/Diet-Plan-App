@@ -1,14 +1,12 @@
 import { createServer } from 'node:http'
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
-import { randomBytes, randomInt, scryptSync, timingSafeEqual } from 'node:crypto'
+import { randomInt, randomUUID } from 'node:crypto'
+import { authenticate, createSession, createUser, emailEvents, findUser, getState, mergeState, publicAccount, recordEmailEvent, replacePassword, revokeSession, storeChallenge, updateUser, verifyChallenge, verifyOfflineRecovery, verifyPassword } from './database.mjs'
 
 const host = process.env.HOST || '0.0.0.0'
 const port = Number(process.env.PORT || 8787)
 const allowedOrigin = process.env.ALLOWED_ORIGIN || '*'
 const resendApiKey = process.env.RESEND_API_KEY || ''
 const fromEmail = process.env.RECOVERY_FROM_EMAIL || ''
-const dataFile = resolve(process.env.RECOVERY_DATA_FILE || './data/recovery-store.json')
 const challengeLifetimeMs = 15 * 60 * 1000
 const resendDelayMs = 60 * 1000
 const maxEmailsPerHour = 5
@@ -21,59 +19,12 @@ class HttpError extends Error {
   }
 }
 
-function emptyStore() {
-  return { accounts: [], challenges: {} }
-}
-
-async function loadStore() {
-  try {
-    const parsed = JSON.parse(await readFile(dataFile, 'utf8'))
-    return {
-      accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
-      challenges: parsed.challenges && typeof parsed.challenges === 'object' ? parsed.challenges : {},
-    }
-  } catch (error) {
-    if (error?.code === 'ENOENT') return emptyStore()
-    throw error
-  }
-}
-
-async function saveStore(store) {
-  await mkdir(dirname(dataFile), { recursive: true })
-  const temporary = `${dataFile}.${process.pid}.tmp`
-  await writeFile(temporary, JSON.stringify(store, null, 2), { mode: 0o600 })
-  await rename(temporary, dataFile)
-}
-
-let mutationQueue = Promise.resolve()
-
-function mutateStore(operation) {
-  const pending = mutationQueue.then(async () => {
-    const store = await loadStore()
-    const result = await operation(store)
-    await saveStore(store)
-    return result
-  })
-  mutationQueue = pending.catch(() => undefined)
-  return pending
-}
-
 function normalize(value) {
   return String(value || '').trim().toLowerCase()
 }
 
 function isEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)
-}
-
-function codeDigest(code, salt) {
-  return scryptSync(String(code), salt, 32).toString('hex')
-}
-
-function safeEqual(leftHex, rightHex) {
-  const left = Buffer.from(leftHex, 'hex')
-  const right = Buffer.from(rightHex, 'hex')
-  return left.length === right.length && timingSafeEqual(left, right)
 }
 
 function escapeHtml(value) {
@@ -123,7 +74,7 @@ async function readJson(request) {
   let total = 0
   for await (const chunk of request) {
     total += chunk.length
-    if (total > 20_000) throw new HttpError(413, 'Request is too large.')
+    if (total > 2_000_000) throw new HttpError(413, 'Request is too large.')
     chunks.push(chunk)
   }
   try {
@@ -131,11 +82,6 @@ async function readJson(request) {
   } catch {
     throw new HttpError(400, 'Invalid JSON request.')
   }
-}
-
-function findAccount(store, identifier) {
-  const value = normalize(identifier)
-  return store.accounts.find((account) => account.username === value || account.email === value)
 }
 
 const ipWindows = new Map()
@@ -152,8 +98,8 @@ function enforceIpLimit(request) {
 function responseHeaders() {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Headers': 'Content-Type, Accept',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Accept, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
     'Cache-Control': 'no-store',
     'Content-Type': 'application/json; charset=utf-8',
     'X-Content-Type-Options': 'nosniff',
@@ -165,129 +111,143 @@ function json(response, status, body) {
   response.end(JSON.stringify(body))
 }
 
-async function registerAccount(body) {
-  const accountId = String(body.accountId || '').trim()
+function validateAccountInput(body) {
+  const displayName = String(body.displayName || '').trim().slice(0, 100)
   const username = normalize(body.username)
   const email = normalize(body.email)
-  const displayName = String(body.displayName || '').trim().slice(0, 100)
-  const initialRecoveryCode = body.initialRecoveryCode ? String(body.initialRecoveryCode).trim() : ''
-  if (!/^[0-9a-f-]{16,64}$/i.test(accountId) || !/^[a-z0-9._-]{3,24}$/.test(username) || !isEmail(email)) throw new HttpError(400, 'Invalid account recovery details.')
-  if (initialRecoveryCode && !/^[A-Z0-9-]{12,20}$/i.test(initialRecoveryCode)) throw new HttpError(400, 'Invalid initial recovery code.')
+  const password = String(body.password || '')
+  const recoveryCode = String(body.recoveryCode || '').trim()
+  if (displayName.length < 2) throw new HttpError(400, 'Enter your full name.')
+  if (!/^[a-z0-9._-]{3,24}$/.test(username)) throw new HttpError(400, 'Username must be 3–24 characters using letters, numbers, dots, dashes, or underscores.')
+  if (!isEmail(email)) throw new HttpError(400, 'Enter a valid email address.')
+  if (password.length < 8 || password.length > 200) throw new HttpError(400, 'Password must contain at least 8 characters.')
+  if (!/^[A-Z0-9-]{12,20}$/i.test(recoveryCode)) throw new HttpError(400, 'Invalid offline recovery code.')
+  return { displayName, username, email, password, recoveryCode }
+}
 
-  const prepared = await mutateStore((store) => {
-    const collision = store.accounts.find((item) => item.id !== accountId && (item.username === username || item.email === email))
-    if (collision) throw new HttpError(409, 'That username or email is already registered for recovery.')
-    const existing = store.accounts.find((item) => item.id === accountId)
-    if (existing && (existing.username !== username || existing.email !== email)) throw new HttpError(409, 'Recovery identity cannot be changed through this endpoint.')
-    if (existing) Object.assign(existing, { displayName, updatedAt: new Date().toISOString() })
-    else store.accounts.push({ id: accountId, username, email, displayName, createdAt: new Date().toISOString(), sentAt: [] })
-    const account = existing || store.accounts.at(-1)
-    const shouldDeliver = Boolean(initialRecoveryCode && !account.initialRecoverySentAt)
-    if (shouldDeliver) account.initialRecoverySentAt = Date.now()
-    return { account, shouldDeliver }
-  })
-
-  if (prepared.shouldDeliver) {
+async function registerUser(body) {
+  const input = validateAccountInput(body)
+  let account
+  try { account = createUser({ id: randomUUID(), ...input }) }
+  catch (error) {
+    if (String(error?.message).includes('UNIQUE')) throw new HttpError(409, 'That username or email is already connected to an account.')
+    throw error
+  }
+  const session = createSession(account.id)
+  let welcomeEmailSent = false
+  if (resendApiKey && fromEmail) {
     try {
-      await sendEmail({
-        to: prepared.account.email,
-        displayName: prepared.account.displayName,
-        username: prepared.account.username,
-        code: initialRecoveryCode,
-        kind: 'initial',
-        idempotencyKey: `initial-${prepared.account.id}-${prepared.account.initialRecoverySentAt}`,
-      })
+      await sendEmail({ to: account.email, displayName: account.displayName, username: account.username, code: input.recoveryCode, kind: 'initial', idempotencyKey: `welcome-${account.id}` })
+      recordEmailEvent(account.id, 'welcome')
+      welcomeEmailSent = true
     } catch (error) {
-      await mutateStore((store) => {
-        const account = store.accounts.find((item) => item.id === accountId)
-        if (account?.initialRecoverySentAt === prepared.account.initialRecoverySentAt) delete account.initialRecoverySentAt
-      })
-      throw error
+      console.error('Welcome email failed after account creation:', error instanceof Error ? error.message : error)
     }
   }
-  return { registered: true, delivered: prepared.shouldDeliver }
+  return { account, state: getState(account.id), ...session, welcomeEmailSent }
+}
+
+function loginUser(body) {
+  const identifier = normalize(body.identifier)
+  const password = String(body.password || '')
+  if (!identifier || !password) throw new HttpError(400, 'Enter your username and password.')
+  const account = verifyPassword(identifier, password)
+  if (!account) throw new HttpError(401, 'Username or password is incorrect.')
+  return { account, state: getState(account.id), ...createSession(account.id) }
+}
+
+function bearerToken(request) {
+  const header = request.headers.authorization || ''
+  return header.startsWith('Bearer ') ? header.slice(7).trim() : ''
+}
+
+function requireSession(request) {
+  const token = bearerToken(request)
+  const session = authenticate(token)
+  if (!session) throw new HttpError(401, 'Your session has expired. Sign in again.')
+  return { ...session, token }
 }
 
 async function requestRecovery(body) {
   const identifier = normalize(body.identifier)
   if (!identifier) throw new HttpError(400, 'Enter your username or email.')
-  const generatedCode = String(randomInt(100000, 1000000))
+  const user = findUser(identifier)
+  if (!user) return { accepted: true }
   const now = Date.now()
-  const prepared = await mutateStore((store) => {
-    const account = findAccount(store, identifier)
-    if (!account) return null
-    const recent = (account.sentAt || []).filter((timestamp) => timestamp > now - 60 * 60 * 1000)
-    const latest = recent.at(-1) || 0
-    if (now - latest < resendDelayMs) throw new HttpError(429, 'Please wait one minute before requesting another code.')
-    if (recent.length >= maxEmailsPerHour) throw new HttpError(429, 'Too many recovery emails. Please try again in one hour.')
-    const salt = randomBytes(16).toString('hex')
-    store.challenges[account.id] = {
-      salt,
-      digest: codeDigest(generatedCode, salt),
-      expiresAt: now + challengeLifetimeMs,
-      attempts: 0,
-    }
-    account.sentAt = [...recent, now]
-    return { accountId: account.id, email: account.email, displayName: account.displayName }
-  })
-  if (!prepared) return { accepted: true }
-  try {
-    await sendEmail({
-      to: prepared.email,
-      displayName: prepared.displayName,
-      username: identifier,
-      code: generatedCode,
-      kind: 'reset',
-      idempotencyKey: `reset-${prepared.accountId}-${now}`,
-    })
-  } catch (error) {
-    await mutateStore((store) => {
-      delete store.challenges[prepared.accountId]
-      const account = store.accounts.find((item) => item.id === prepared.accountId)
-      if (account) account.sentAt = (account.sentAt || []).filter((timestamp) => timestamp !== now)
-    })
-    throw error
-  }
-  return { accepted: true }
+  const recent = emailEvents(user.id, 'reset', new Date(now - 60 * 60 * 1000).toISOString())
+  const latest = recent.at(-1)?.created_at ? new Date(recent.at(-1).created_at).getTime() : 0
+  if (now - latest < resendDelayMs) throw new HttpError(429, 'Please wait one minute before requesting another code.')
+  if (recent.length >= maxEmailsPerHour) throw new HttpError(429, 'Too many recovery emails. Please try again in one hour.')
+  const generatedCode = String(randomInt(100000, 1000000))
+  storeChallenge(user.id, generatedCode, now + challengeLifetimeMs)
+  await sendEmail({ to: user.email, displayName: user.display_name, username: user.username, code: generatedCode, kind: 'reset', idempotencyKey: `reset-${user.id}-${now}` })
+  recordEmailEvent(user.id, 'reset')
+  return { accepted: true, maskedEmail: maskEmail(user.email) }
 }
 
-async function verifyRecovery(body) {
+function maskEmail(email) {
+  const [local, domain] = String(email).split('@')
+  return `${local.slice(0, Math.min(2, local.length))}${'*'.repeat(Math.max(2, local.length - 2))}@${domain}`
+}
+
+function resetWithEmail(body) {
   const identifier = normalize(body.identifier)
   const code = String(body.code || '').trim()
-  if (!identifier || !/^\d{6}$/.test(code)) throw new HttpError(400, 'The email code is invalid or expired.')
-  return mutateStore((store) => {
-    const account = findAccount(store, identifier)
-    const challenge = account ? store.challenges[account.id] : undefined
-    if (!account || !challenge || challenge.expiresAt < Date.now() || challenge.attempts >= maxVerificationAttempts) {
-      if (account) delete store.challenges[account.id]
-      throw new HttpError(400, 'The email code is invalid or expired.')
-    }
-    challenge.attempts += 1
-    if (!safeEqual(codeDigest(code, challenge.salt), challenge.digest)) throw new HttpError(400, 'The email code is invalid or expired.')
-    delete store.challenges[account.id]
-    return { accountId: account.id }
-  })
+  const password = String(body.password || '')
+  const user = findUser(identifier)
+  if (!user || !/^\d{6}$/.test(code) || !verifyChallenge(user.id, code, maxVerificationAttempts)) throw new HttpError(400, 'The email code is invalid or expired.')
+  if (password.length < 8 || password.length > 200) throw new HttpError(400, 'New password must contain at least 8 characters.')
+  replacePassword(user.id, password)
+  return { account: publicAccount(user.id), state: getState(user.id), ...createSession(user.id) }
+}
+
+function resetWithOfflineCode(body) {
+  const password = String(body.password || '')
+  if (password.length < 8 || password.length > 200) throw new HttpError(400, 'New password must contain at least 8 characters.')
+  const account = verifyOfflineRecovery(body.identifier, body.recoveryCode)
+  if (!account) throw new HttpError(400, 'The username or recovery code is incorrect.')
+  replacePassword(account.id, password)
+  return { account, state: getState(account.id), ...createSession(account.id) }
 }
 
 const server = createServer(async (request, response) => {
   try {
     if (request.method === 'OPTIONS') return json(response, 204, {})
-    if (request.method === 'GET' && request.url === '/health') return json(response, 200, { ok: true, emailConfigured: Boolean(resendApiKey && fromEmail) })
-    if (request.method !== 'POST') throw new HttpError(404, 'Not found.')
+    if (request.method === 'GET' && request.url === '/health') return json(response, 200, { ok: true, database: 'sqlite', emailConfigured: Boolean(resendApiKey && fromEmail) })
     enforceIpLimit(request)
+    if (request.method === 'GET' && request.url === '/v1/me') {
+      const session = requireSession(request)
+      return json(response, 200, { account: publicAccount(session.userId), state: getState(session.userId) })
+    }
+    if (request.method === 'GET' && request.url === '/v1/state') {
+      const session = requireSession(request)
+      return json(response, 200, getState(session.userId))
+    }
     const body = await readJson(request)
-    if (request.url === '/v1/accounts/register') return json(response, 200, await registerAccount(body))
-    if (request.url === '/v1/recovery/request') return json(response, 202, await requestRecovery(body))
-    if (request.url === '/v1/recovery/verify') return json(response, 200, await verifyRecovery(body))
+    if (request.method === 'POST' && request.url === '/v1/auth/register') return json(response, 201, await registerUser(body))
+    if (request.method === 'POST' && request.url === '/v1/auth/login') return json(response, 200, loginUser(body))
+    if (request.method === 'POST' && request.url === '/v1/auth/logout') { const session = requireSession(request); revokeSession(session.token); return json(response, 200, { signedOut: true }) }
+    if (request.method === 'POST' && request.url === '/v1/recovery/request') return json(response, 202, await requestRecovery(body))
+    if (request.method === 'POST' && request.url === '/v1/recovery/reset') return json(response, 200, resetWithEmail(body))
+    if (request.method === 'POST' && request.url === '/v1/recovery/offline') return json(response, 200, resetWithOfflineCode(body))
+    if (request.method === 'PATCH' && request.url === '/v1/state') {
+      const session = requireSession(request)
+      if (!body.state || typeof body.state !== 'object' || Array.isArray(body.state)) throw new HttpError(400, 'State must be an object.')
+      return json(response, 200, mergeState(session.userId, body.state))
+    }
+    if (request.method === 'PATCH' && request.url === '/v1/account') {
+      const session = requireSession(request)
+      return json(response, 200, { account: updateUser(session.userId, body) })
+    }
     throw new HttpError(404, 'Not found.')
   } catch (error) {
     const status = error instanceof HttpError ? error.status : 500
     if (status >= 500) console.error(error instanceof HttpError ? error.message : error)
-    json(response, status, { error: status === 500 ? 'Recovery service error.' : error.message })
+    json(response, status, { error: status === 500 ? 'Account service error.' : error.message })
   }
 })
 
 server.listen(port, host, () => {
-  console.log(`Tawazon recovery service listening on http://${host}:${port}`)
+  console.log(`Tawazon account service listening on http://${host}:${port}`)
   if (!resendApiKey || !fromEmail) console.warn('Email delivery is disabled until RESEND_API_KEY and RECOVERY_FROM_EMAIL are configured.')
 })

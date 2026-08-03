@@ -35,6 +35,7 @@ jobs:
 
       - name: Build for GitHub Pages
         env:
+          VITE_ACCOUNT_API_URL: ${{ vars.ACCOUNT_API_URL }}
           VITE_RECOVERY_API_URL: ${{ vars.RECOVERY_API_URL }}
         run: npm run build -- --base=/Diet-Plan-App/
 

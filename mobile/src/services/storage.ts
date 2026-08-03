@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { mealGroups } from '../data'
 import type { AppData, DaySelections, DietMealId, ImportedDietPlan, MealGroup, SelectionMap, UserAccount, UserProfile } from '../types'
 import { buildWeekIds } from '../utils/nutrition'
+import { isCloudConfigured, loadCloudState, saveCloudState } from './cloud'
 
 const DATA_PREFIX = 'tawazon.mobile.data.v1.'
 
@@ -102,12 +103,13 @@ function daysAgo(days: number) {
 
 export async function loadAppData(account: UserAccount) {
   try {
+    const cloud = isCloudConfigured() ? await loadCloudState() : null
     const stored = await AsyncStorage.getItem(`${DATA_PREFIX}${account.id}`)
-    if (!stored) return initialData(account)
-    const parsed = JSON.parse(stored) as Partial<AppData>
+    const remoteState = cloud?.state && Object.keys(cloud.state).length ? cloud.state as Partial<AppData> : null
+    const parsed = remoteState ?? (stored ? JSON.parse(stored) as Partial<AppData> : {})
     const defaults = initialData(account)
     const currentWeekSelections = createDefaultSelections(buildMealGroups(parsed.dietPlan))
-    return {
+    const merged = {
       ...defaults,
       ...parsed,
       profile: { ...defaults.profile, ...parsed.profile },
@@ -117,6 +119,8 @@ export async function loadAppData(account: UserAccount) {
       weights: parsed.weights ?? defaults.weights,
       scanHistory: parsed.scanHistory ?? [],
     } as AppData
+    await AsyncStorage.setItem(`${DATA_PREFIX}${account.id}`, JSON.stringify(merged))
+    return merged
   } catch {
     return initialData(account)
   }
@@ -124,6 +128,7 @@ export async function loadAppData(account: UserAccount) {
 
 export async function saveAppData(accountId: string, data: AppData) {
   await AsyncStorage.setItem(`${DATA_PREFIX}${accountId}`, JSON.stringify(data))
+  if (isCloudConfigured()) await saveCloudState({ ...data, dietPlan: data.dietPlan ?? null, planSkippedAt: data.planSkippedAt ?? null } as unknown as Record<string, unknown>).catch(() => null)
 }
 
 export function applyDietPlan(data: AppData, plan: ImportedDietPlan): AppData {

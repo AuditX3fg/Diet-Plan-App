@@ -16,6 +16,7 @@ import { WeekPage } from './pages/WeekPage'
 import { WorkoutsPage } from './pages/WorkoutsPage'
 import { accountStorageKey, getCurrentAccount, saveDietPlan, signOut, subscribeToAuthChanges, updateAccount } from './services/auth'
 import { buildMealGroups } from './services/dietPlan'
+import { loadCloudState, saveCloudState } from './services/cloud'
 import { defaultReminderSettings, getNotificationPermission, requestNotificationPermission, sendReminderNotification } from './services/reminders'
 import type { FoodProduct, FruitMap, HabitId, HabitMap, ImportedDietPlan, Language, PlanPreset, ReminderSettings, SelectionMap, SportPreference, ThemeMode, UserAccount, UserProfile, View, WeightEntry } from './types'
 import { buildWeek, createDefaultSelections, createRandomWeek, getDayTotals, normalizeSelectionMap } from './utils'
@@ -115,6 +116,46 @@ function DietApp({ account, onAccountChange, onLogout }: DietAppProps) {
     { date: dateDaysAgo(7), value: 82.9 },
     { date: dateDaysAgo(0), value: 82.4 },
   ])
+  const [cloudHydrated, setCloudHydrated] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    void loadCloudState().then((cloud) => {
+      if (!active || !cloud?.state || Object.keys(cloud.state).length === 0) { if (active) setCloudHydrated(true); return }
+      const state = cloud.state
+      if (state.theme) setTheme(state.theme as ThemeMode)
+      if (state.language) setLanguage(state.language as Language)
+      if (state.profile) setProfile((current) => ({ ...current, ...(state.profile as UserProfile) }))
+      if (state.selections) setStoredSelections(state.selections)
+      if (state.fruitMap) setFruitMap(state.fruitMap as FruitMap)
+      if (state.waterByDay) setWaterMap(state.waterByDay as Record<string, number>)
+      if (state.habits) setHabits(state.habits as HabitMap)
+      if (state.presets) setPresets(state.presets as PlanPreset[])
+      if (state.sport) setSportPreference(state.sport as SportPreference)
+      if (state.scanHistory) setScanHistory(state.scanHistory as FoodProduct[])
+      if (state.shoppingList) setShoppingList(state.shoppingList as FoodProduct[])
+      if (state.reminders) setReminders(state.reminders as ReminderSettings)
+      if (state.weights) setWeightEntries(state.weights as WeightEntry[])
+      const remotePlan = state.dietPlan as ImportedDietPlan | undefined
+      const remoteSkippedAt = state.planSkippedAt as string | undefined
+      if (remotePlan !== account.dietPlan || remoteSkippedAt !== account.planSkippedAt) onAccountChange({ ...account, dietPlan: remotePlan, planSkippedAt: remoteSkippedAt })
+      setCloudHydrated(true)
+    })
+    return () => { active = false }
+  }, [account.id])
+
+  useEffect(() => {
+    if (!cloudHydrated) return
+    const timer = window.setTimeout(() => {
+      void saveCloudState({
+        profile, dietPlan: account.dietPlan ?? null, planSkippedAt: account.planSkippedAt ?? null,
+        selections, fruitMap, waterByDay: waterMap, habits, presets,
+        sport: sportPreference, language, theme, scanHistory, shoppingList,
+        reminders, weights: weightEntries,
+      }).catch(() => undefined)
+    }, 500)
+    return () => window.clearTimeout(timer)
+  }, [account.dietPlan, account.planSkippedAt, cloudHydrated, fruitMap, habits, language, presets, profile, reminders, scanHistory, selections, shoppingList, sportPreference, theme, waterMap, weightEntries])
 
   useEffect(() => {
     const media = window.matchMedia?.('(prefers-color-scheme: dark)')

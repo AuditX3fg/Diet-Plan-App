@@ -8,3 +8,6 @@ vite.config.d.ts
 .env
 .env.*
 !.env.example
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

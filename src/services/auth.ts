@@ -1,8 +1,10 @@
 import type { ImportedDietPlan, UserAccount } from '../types'
 import { sendWelcomeEmail } from './recoveryEmail'
+import { cloudLogin, cloudLogout, cloudOfflineReset, cloudRegister, isCloudConfigured, saveCloudState, updateCloudAccount } from './cloud'
 
 const ACCOUNTS_KEY = 'tawazon-accounts-v1'
 const SESSION_KEY = 'tawazon-session-v1'
+const CLOUD_ACCOUNT_KEY = 'tawazon-cloud-account-v1'
 const HASH_ITERATIONS = 150_000
 
 interface StoredAccount extends UserAccount {
@@ -72,8 +74,20 @@ function setSession(accountId: string) {
   window.localStorage.setItem(SESSION_KEY, JSON.stringify(session))
 }
 
+function cloudAccountWithState(account: UserAccount, state: Record<string, unknown>) {
+  return { ...account, dietPlan: state.dietPlan as ImportedDietPlan | undefined, planSkippedAt: state.planSkippedAt as string | undefined }
+}
+
+function saveCloudAccount(account: UserAccount) {
+  window.localStorage.setItem(CLOUD_ACCOUNT_KEY, JSON.stringify(account))
+}
+
 export function getCurrentAccount(): UserAccount | null {
   try {
+    if (isCloudConfigured()) {
+      const cloudAccount = window.localStorage.getItem(CLOUD_ACCOUNT_KEY)
+      return cloudAccount ? JSON.parse(cloudAccount) as UserAccount : null
+    }
     const stored = window.localStorage.getItem(SESSION_KEY)
     if (!stored) return null
     const session = JSON.parse(stored) as SessionRecord
@@ -96,6 +110,14 @@ export async function createAccount(input: { displayName: string; username: stri
   if (!/^[a-z0-9._-]{3,24}$/.test(username)) throw new Error('Username must be 3–24 characters using letters, numbers, dots, dashes, or underscores.')
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new Error('Enter a valid email address.')
   if (input.password.length < 8) throw new Error('Password must contain at least 8 characters.')
+
+  if (isCloudConfigured()) {
+    const code = recoveryCode()
+    const response = await cloudRegister({ displayName, username, email, password: input.password, recoveryCode: code })
+    const account = cloudAccountWithState(response.account, response.state.state)
+    saveCloudAccount(account)
+    return { account, recoveryCode: code, welcomeEmailSent: Boolean(response.welcomeEmailSent) }
+  }
 
   const accounts = loadAccounts()
   if (accounts.some((account) => account.username === username)) throw new Error('That username is already in use.')
@@ -125,6 +147,12 @@ export async function createAccount(input: { displayName: string; username: stri
 
 export async function signIn(usernameInput: string, password: string) {
   const username = usernameInput.trim().toLowerCase()
+  if (isCloudConfigured()) {
+    const response = await cloudLogin(username, password)
+    const account = cloudAccountWithState(response.account, response.state.state)
+    saveCloudAccount(account)
+    return account
+  }
   const account = loadAccounts().find((item) => item.username === username)
   if (!account) throw new Error('Username or password is incorrect.')
   const passwordHash = await hashSecret(password, account.passwordSalt)
@@ -134,12 +162,17 @@ export async function signIn(usernameInput: string, password: string) {
 }
 
 export function signOut() {
+  if (isCloudConfigured()) {
+    window.localStorage.removeItem(CLOUD_ACCOUNT_KEY)
+    void cloudLogout()
+    return
+  }
   window.localStorage.removeItem(SESSION_KEY)
 }
 
 export function subscribeToAuthChanges(listener: (account: UserAccount | null) => void) {
   function syncAccount(event: StorageEvent) {
-    if (event.key === SESSION_KEY || event.key === ACCOUNTS_KEY || event.key === null) {
+    if (event.key === SESSION_KEY || event.key === ACCOUNTS_KEY || event.key === CLOUD_ACCOUNT_KEY || event.key === null) {
       listener(getCurrentAccount())
     }
   }
@@ -151,6 +184,12 @@ export function subscribeToAuthChanges(listener: (account: UserAccount | null) =
 export async function resetPassword(input: { username: string; recoveryCode: string; password: string }) {
   if (input.password.length < 8) throw new Error('New password must contain at least 8 characters.')
   const username = input.username.trim().toLowerCase()
+  if (isCloudConfigured()) {
+    const response = await cloudOfflineReset(username, input.recoveryCode, input.password)
+    const account = cloudAccountWithState(response.account, response.state.state)
+    saveCloudAccount(account)
+    return account
+  }
   const accounts = loadAccounts()
   const index = accounts.findIndex((item) => item.username === username)
   if (index < 0) throw new Error('The username or recovery code is incorrect.')
@@ -165,6 +204,15 @@ export async function resetPassword(input: { username: string; recoveryCode: str
 }
 
 export function updateAccount(accountId: string, patch: Partial<Pick<UserAccount, 'displayName' | 'dietPlan' | 'planSkippedAt'>>) {
+  if (isCloudConfigured()) {
+    const current = getCurrentAccount()
+    if (!current || current.id !== accountId) throw new Error('Account not found.')
+    const next = { ...current, ...patch }
+    saveCloudAccount(next)
+    if (patch.displayName) void updateCloudAccount(patch.displayName)
+    if ('dietPlan' in patch || 'planSkippedAt' in patch) void saveCloudState({ dietPlan: patch.dietPlan ?? null, planSkippedAt: patch.planSkippedAt ?? null })
+    return next
+  }
   const accounts = loadAccounts()
   const index = accounts.findIndex((account) => account.id === accountId)
   if (index < 0) throw new Error('Account not found.')

@@ -6,6 +6,7 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import type { UserAccount } from '../types'
 import { registerRecoveryEmail, requestRecoveryEmail, verifyRecoveryEmail } from './recoveryEmail'
+import { cloudEmailReset, cloudLogin, cloudLogout, cloudOfflineReset, cloudRegister, cloudRequestEmailCode, isCloudConfigured, updateCloudAccount } from './cloud'
 
 const ACCOUNT_INDEX_KEY = 'tawazon.mobile.accounts.v1'
 const SESSION_KEY = 'tawazon.mobile.session.v1'
@@ -139,6 +140,14 @@ export async function createAccount(input: { displayName: string; username: stri
   if (!validEmail(email)) throw new Error('Enter a valid email address for password recovery.')
   if (input.password.length < 8) throw new Error('Password must contain at least 8 characters.')
 
+  if (isCloudConfigured()) {
+    const recoveryCode = generateRecoveryCode()
+    const response = await cloudRegister({ displayName, username, email, password: input.password, recoveryCode })
+    await saveAccounts([response.account])
+    await setSession(response.account.id)
+    return { account: response.account, recoveryCode, recoveryEmailSent: Boolean(response.welcomeEmailSent) }
+  }
+
   const accounts = await loadAccounts()
   if (accounts.some((account) => account.username === username)) throw new Error('That username is already in use.')
   if (accounts.some((account) => account.email === email)) throw new Error('That email is already connected to an account.')
@@ -163,6 +172,13 @@ export async function createAccount(input: { displayName: string; username: stri
 
 export async function signIn(usernameInput: string, password: string) {
   const username = usernameInput.trim().toLowerCase()
+  if (isCloudConfigured()) {
+    const response = await cloudLogin(username, password)
+    const accounts = await loadAccounts()
+    await saveAccounts([response.account, ...accounts.filter((item) => item.id !== response.account.id)])
+    await setSession(response.account.id)
+    return response.account
+  }
   const account = (await loadAccounts()).find((item) => item.username === username)
   if (!account) throw new Error('Username or password is incorrect.')
   const stored = await getSecret(passwordKey(account.id))
@@ -173,6 +189,13 @@ export async function signIn(usernameInput: string, password: string) {
 
 export async function resetPassword(input: { username: string; recoveryCode: string; password: string }) {
   if (input.password.length < 8) throw new Error('New password must contain at least 8 characters.')
+  if (isCloudConfigured()) {
+    const response = await cloudOfflineReset(input.username, input.recoveryCode, input.password)
+    const accounts = await loadAccounts()
+    await saveAccounts([response.account, ...accounts.filter((item) => item.id !== response.account.id)])
+    await setSession(response.account.id)
+    return response.account
+  }
   const account = (await loadAccounts()).find((item) => item.username === input.username.trim().toLowerCase())
   if (!account) throw new Error('The username or recovery code is incorrect.')
   const storedRecovery = await getSecret(recoveryKey(account.id))
@@ -183,6 +206,10 @@ export async function resetPassword(input: { username: string; recoveryCode: str
 }
 
 export async function sendEmailRecoveryCode(identifier: string) {
+  if (isCloudConfigured()) {
+    const result = await cloudRequestEmailCode(identifier)
+    return { maskedEmail: result.maskedEmail || 'your recovery email' }
+  }
   const account = findAccount(await loadAccounts(), identifier)
   if (!account) throw new Error('No matching account was found on this device.')
   if (!account.email) throw new Error('This older account has no recovery email. Use the saved recovery code.')
@@ -194,6 +221,13 @@ export async function sendEmailRecoveryCode(identifier: string) {
 export async function resetPasswordWithEmail(input: { identifier: string; emailCode: string; password: string }) {
   if (input.password.length < 8) throw new Error('New password must contain at least 8 characters.')
   if (!/^\d{6}$/.test(input.emailCode.trim())) throw new Error('Enter the six-digit code from your email.')
+  if (isCloudConfigured()) {
+    const response = await cloudEmailReset(input.identifier, input.emailCode.trim(), input.password)
+    const accounts = await loadAccounts()
+    await saveAccounts([response.account, ...accounts.filter((item) => item.id !== response.account.id)])
+    await setSession(response.account.id)
+    return response.account
+  }
   const account = findAccount(await loadAccounts(), input.identifier)
   if (!account?.email) throw new Error('No email-enabled account was found on this device.')
   const verified = await verifyRecoveryEmail(account.email, input.emailCode.trim())
@@ -205,6 +239,13 @@ export async function updateAccount(accountId: string, displayName: string) {
   const accounts = await loadAccounts()
   const index = accounts.findIndex((item) => item.id === accountId)
   if (index < 0) throw new Error('Account not found.')
+  if (isCloudConfigured()) {
+    const response = await updateCloudAccount(displayName)
+    if (!response) throw new Error('Could not update this cloud account.')
+    accounts[index] = response.account
+    await saveAccounts(accounts)
+    return response.account
+  }
   accounts[index] = { ...accounts[index], displayName: displayName.trim() || accounts[index].displayName }
   await saveAccounts(accounts)
   return accounts[index]
@@ -226,5 +267,6 @@ export async function addRecoveryEmail(accountId: string, emailInput: string) {
 }
 
 export async function signOut() {
+  if (isCloudConfigured()) await cloudLogout()
   await deleteSecret(SESSION_KEY)
 }

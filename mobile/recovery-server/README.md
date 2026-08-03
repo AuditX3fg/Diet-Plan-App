@@ -1,6 +1,6 @@
-# Tawazon email recovery service
+# Tawazon account and synchronization service
 
-A small Node.js 22 service for registering recovery emails, delivering branded welcome messages and reset codes through Resend, and verifying short-lived reset codes. No email API key is included in either client bundle.
+A Node.js 22 service providing shared accounts, multi-device sessions, synchronized app data, offline and email password recovery, and branded email delivery. Credentials and session tokens are never stored in either client bundle.
 
 ## Configure
 
@@ -12,14 +12,20 @@ A small Node.js 22 service for registering recovery emails, delivering branded w
 npm run dev
 ```
 
-4. Copy `mobile/.env.example` to `mobile/.env` and set `EXPO_PUBLIC_RECOVERY_API_URL` to this service's HTTPS URL.
+4. Deploy the service behind HTTPS with a persistent volume mounted for `TAWAZON_DB_FILE`.
+5. Copy `mobile/.env.example` to `mobile/.env`, then set `EXPO_PUBLIC_ACCOUNT_API_URL` and `EXPO_PUBLIC_RECOVERY_API_URL` to the service's HTTPS URL.
 
-For the web client, set `VITE_RECOVERY_API_URL` locally or the GitHub repository variable `RECOVERY_API_URL` for the Pages workflow.
+For the web client, set `VITE_ACCOUNT_API_URL` locally or the GitHub repository variable `ACCOUNT_API_URL` for the Pages workflow. `VITE_RECOVERY_API_URL` remains supported for older deployments.
 
 For local device testing, use the computer's LAN IP. The Android emulator reaches the host at `10.0.2.2`; the iOS Simulator can use `127.0.0.1`. Restart Expo after changing its environment file.
 
 ## Security behavior
 
+- Passwords and offline recovery codes use independently salted scrypt hashes.
+- Login sessions use 256-bit random bearer tokens; only SHA-256 token digests are stored.
+- Sessions expire after 30 days and all sessions are revoked after a password reset.
+- Usernames and emails have case-insensitive unique database constraints.
+- App state is account-scoped, versioned, and shallow-merged transactionally so web and mobile fields do not overwrite one another.
 - Six-digit reset codes expire after 15 minutes.
 - A code is invalidated after five failed attempts or one successful verification.
 - Resends are limited to once per minute and five times per account per hour.
@@ -29,4 +35,13 @@ For local device testing, use the computer's LAN IP. The Android emulator reache
 - The transactional email key stays on the server.
 - Welcome messages include the username and offline recovery code, but never the plaintext password.
 
-The JSON store is useful for a private deployment or prototype. For a public multi-instance deployment, replace it with a transactional database, add authenticated account registration, put the service behind HTTPS and an edge rate limiter, and define a specific `ALLOWED_ORIGIN`.
+The relational schema is in `schema.sql`. SQLite runs in WAL mode and is appropriate for a single service instance with a persistent disk. For horizontal multi-instance scaling, migrate the same schema to PostgreSQL. Always use HTTPS, an edge rate limiter, a persistent encrypted backup, and a specific `ALLOWED_ORIGIN` in production.
+
+## Database layout
+
+- `users`: public identity and profile name
+- `credentials`: password and offline recovery hashes
+- `sessions`: revocable cross-device login sessions
+- `user_state`: versioned canonical diet, profile, tracking, preference, and progress data
+- `recovery_challenges`: short-lived email reset challenges
+- `email_events`: delivery throttling and audit timestamps
